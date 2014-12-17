@@ -42,12 +42,13 @@ file(GLOB SOURCE_FILES *.cpp *.hpp *.inl *.h *.c)
 
 #####################################################################################
 # download model for this demo to run. Avoids using GitHub for this
+# TODO: we need to put the models online. Should happen next week (>Dec.22)
 #
-_download_file(
-  "http://blog.uncovering.org/archives/uploads/2008/ZZ00E5E1F8.jpg"
-  "${BASE_DIRECTORY}/shared_external/bk3d_models/Amiga500_system.jpg"
-  ${FORCE_MODELS_DOWNLOAD}
-)
+#_download_file(
+#  "http://blog.uncovering.org/archives/uploads/2008/ZZ00E5E1F8.jpg"
+#  "${BASE_DIRECTORY}/shared_external/bk3d_models/Amiga500_system.jpg"
+#  ${FORCE_MODELS_DOWNLOAD}
+#)
 
 #####################################################################################
 # additional files from helpers
