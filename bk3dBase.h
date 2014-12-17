@@ -728,6 +728,20 @@ INLINE static FileHeader * load(const char * fname, void ** pBufferMemory=NULL, 
       EPRINTF((TEXT("Error : couldn't load ") FSTR TEXT("\n"), fname));
         return NULL;
     }
+	unsigned long realsize = 0;
+#ifdef NOGZLIB
+    fseek(fd, 0, SEEK_END);
+	realsize = ftell(file);
+    fseek(fd, 0, SEEK_SET);
+#else
+	FILE *file = fopen(fname,"rb");
+    fseek(file, 0, SEEK_END);
+	realsize = ftell(file);
+    fseek(file, realsize-4, SEEK_SET);
+	fread(&realsize, 4, 1, file);
+	fclose(file);
+#endif
+    // load the Node, first
     int n = 0;
     unsigned int offs = sizeof(Node);
     char * memory = (char*)malloc(offs);
@@ -744,21 +758,10 @@ INLINE static FileHeader * load(const char * fname, void ** pBufferMemory=NULL, 
     memory = (char*)realloc(memory, modelStructSize);
     n= GREAD(fd, memory + offs, modelStructSize - offs);
     // Now anything beyond this is Buffer Memory : vertex tables etc.
-    char *memory2 = (char*)malloc(size);
-    offs = 0;
-    n= GREAD(fd, memory2, size);
-    int N = n;
-    do {
-      if(n > 0)
-      {
-          offs += size;
-          memory2 = (char*)realloc(memory2, size + offs);
-      }
-      n= GREAD(fd, memory2 + offs, size);
-      N += n;
-    } while(n == size);
+    char *memory2 = (char*)malloc(realsize - modelStructSize);
+    n= GREAD(fd, memory2, realsize - modelStructSize);
     if(bufferMemorySz)
-        *bufferMemorySz = N;
+        *bufferMemorySz = n;
     if(pBufferMemory)
         *pBufferMemory = memory2;
     if(fd)
