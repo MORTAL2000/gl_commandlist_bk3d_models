@@ -717,8 +717,6 @@ INLINE void FileHeader::restorePointerOffsets(void* pBufferArea)
 //--------------------------------
 INLINE static FileHeader * load(const char * fname, void ** pBufferMemory=NULL, unsigned int* bufferMemorySz=NULL)
 {
-#   define RAWMESHMINSZ (10*1024*1024)
-    unsigned int size = RAWMESHMINSZ;
     GFILE fd = NULL;
     if(!fname)
         return NULL;
