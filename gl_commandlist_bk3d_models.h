@@ -234,7 +234,7 @@ public:
     GLuint findStateOrCreate(bk3d::Mesh *pMesh, bk3d::PrimGroup* pPG);
     bool comparePG(const bk3d::PrimGroup* pPrevPG, const bk3d::PrimGroup* pPG);
     bool compareAttribs(bk3d::Mesh* pPrevMesh, bk3d::Mesh* pMesh);
-    int recordMeshes(GLenum topology, GLsizei &tokenTableOffset, int &totalDCs, GLuint m_fboMSAA8x);
+    int recordMeshes(GLenum topology, std::vector<int> &offsets, GLsizei &tokenTableOffset, int &totalDCs, GLuint m_fboMSAA8x);
     void init_command_list();
     void update_fbo_target(GLuint fbo);
     bool recordTokenBufferObject(GLuint m_fboMSAA8x);

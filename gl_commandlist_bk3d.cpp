@@ -158,18 +158,22 @@ Bk3dModel::~Bk3dModel()
 void Bk3dModel::deleteCommandListData()
 {
     releaseState(0); // 0 : release all
+    if(m_tokenBufferModel.bufferID)
+        glDeleteBuffers(1, &m_tokenBufferModel.bufferID);
+    m_tokenBufferModel.bufferAddr = NULL;
+    m_tokenBufferModel.bufferID = 0;
+    m_tokenBufferModel.data.clear();
+    m_tokenBufferModel.sizeBytes = 0;
+
     // delete FBOs... m_tokenBufferModel.fbos
     for(int i=0; i<m_commandModel.stateGroups.size(); i++)
         glDeleteStatesNV(1, &m_commandModel.stateGroups[i]);
-    if(m_tokenBufferModel.bufferID)
-        glDeleteBuffers(1, &m_tokenBufferModel.bufferID);
-    m_tokenBufferModel.data.clear();
-    m_commandModel.offsets.clear();
     m_commandModel.dataPtrs.clear();
     m_commandModel.sizes.clear();
     m_commandModel.fbos.clear();
     m_commandModel.stateGroups.clear();
-    m_tokenBufferModel.bufferID = 0;
+    m_commandModel.numItems = 0;
+
     m_bRecordObject     = true;
     if(m_commandList)
         glDeleteCommandListsNV(1, &m_commandList);
@@ -312,7 +316,7 @@ bool Bk3dModel::compareAttribs(bk3d::Mesh* pPrevMesh, bk3d::Mesh* pMesh)
 // topology to 0 means we just build things as we get them
 // specific topology will only retain these ones
 //------------------------------------------------------------------------------
-int Bk3dModel::recordMeshes(GLenum topology, GLsizei &tokenTableOffset, int &totalDCs, GLuint m_fboMSAA8x)
+int Bk3dModel::recordMeshes(GLenum topology, std::vector<int> &offsets, GLsizei &tokenTableOffset, int &totalDCs, GLuint m_fboMSAA8x)
 {
     int nDCs = 0;
     // first default state capture
@@ -324,7 +328,6 @@ int Bk3dModel::recordMeshes(GLenum topology, GLsizei &tokenTableOffset, int &tot
     bool                changed = false;
     int                 prevNAttr = -1;
     std::string         tokentable;
-    std::vector<int>    offsets;
 
     BO curVBO;
     BO curEBO;
@@ -566,6 +569,7 @@ bool Bk3dModel::recordTokenBufferObject(GLuint m_fboMSAA8x)
         return false;
 
     GLsizei tokenTableOffset = 0;
+    std::vector<int> offsets;
 
     glEnableClientState(GL_VERTEX_ATTRIB_ARRAY_UNIFIED_NV);
     glEnableClientState(GL_ELEMENT_ARRAY_UNIFIED_NV);
@@ -585,43 +589,51 @@ bool Bk3dModel::recordTokenBufferObject(GLuint m_fboMSAA8x)
     switch(g_TokenBufferGrouping)
     {
     case 0:
-        nDCs = recordMeshes(-1, tokenTableOffset, totalDCs, m_fboMSAA8x);
+        nDCs = recordMeshes(-1, offsets, tokenTableOffset, totalDCs, m_fboMSAA8x);
         break;
     case 1:
         LOGI("Sorting by primitive types\n", m_meshFile->pMeshes->n);
         LOGFLUSH();
-        nDCs = recordMeshes(GL_TRIANGLES, tokenTableOffset, totalDCs, m_fboMSAA8x);
+        nDCs = recordMeshes(GL_TRIANGLES, offsets, tokenTableOffset, totalDCs, m_fboMSAA8x);
         LOGI("GL_TRIANGLES/STRIP: %d\n", nDCs);
         LOGFLUSH();
-        nDCs = recordMeshes(GL_TRIANGLE_FAN, tokenTableOffset, totalDCs, m_fboMSAA8x);
+        nDCs = recordMeshes(GL_TRIANGLE_FAN, offsets, tokenTableOffset, totalDCs, m_fboMSAA8x);
         LOGI("GL_TRIANGLE_FAN: %d\n", nDCs);
         LOGFLUSH();
-        nDCs = recordMeshes(GL_QUADS, tokenTableOffset, totalDCs, m_fboMSAA8x);
+        nDCs = recordMeshes(GL_QUADS, offsets, tokenTableOffset, totalDCs, m_fboMSAA8x);
         LOGI("GL_QUADS/STRIP: %d\n", nDCs);
         LOGFLUSH();
-        nDCs = recordMeshes(GL_LINES, tokenTableOffset, totalDCs, m_fboMSAA8x);
+        nDCs = recordMeshes(GL_LINES, offsets, tokenTableOffset, totalDCs, m_fboMSAA8x);
         LOGI("GL_LINES: %d\n", nDCs);
         LOGFLUSH();
-        nDCs = recordMeshes(GL_POINTS, tokenTableOffset, totalDCs, m_fboMSAA8x);
+        nDCs = recordMeshes(GL_POINTS, offsets, tokenTableOffset, totalDCs, m_fboMSAA8x);
         LOGI("GL_POINTS: %d\n", nDCs);
         LOGFLUSH();
         break;
     }
+    m_tokenBufferModel.sizeBytes = m_tokenBufferModel.data.size();
     //
     // create the buffer object for this token buffer:
     //
     glGenBuffers(1, &m_tokenBufferModel.bufferID);
     glNamedBufferDataEXT(m_tokenBufferModel.bufferID, m_tokenBufferModel.data.size(), &m_tokenBufferModel.data[0], GL_STATIC_DRAW);
-    LOGOK("Token buffer of %.2f kb created for %d state changes and %d Drawcalls\n", (float)m_tokenBufferModel.data.size()/1024.0, m_tokenBufferModel.stateGroups.size(), totalDCs);
+    // get the 64 bits pointer and make it resident: bedcause we will go through its pointer
+    glGetNamedBufferParameterui64vNV(m_tokenBufferModel.bufferID, GL_BUFFER_GPU_ADDRESS_NV, &m_tokenBufferModel.bufferAddr);
+    glMakeNamedBufferResidentNV(m_tokenBufferModel.bufferID, GL_READ_ONLY);
+    LOGOK("Token buffer of %.2f kb created for %d state changes and %d Drawcalls\n", (float)m_tokenBufferModel.data.size()/1024.0, m_commandModel.stateGroups.size(), totalDCs);
     LOGOK("Total of %d primitives\n", m_stats.primitives);
     LOGFLUSH();
     //
     // create a table of client pointer (system memory) for command-list
     // we do it at the end because STL might have re-allocated the 'data' system-memory along the previous process
     //
-    for(int i=0; i<m_commandModel.offsets.size(); i++)
+    m_commandModel.numItems = offsets.size();
+    for(int i=0; i<m_commandModel.numItems; i++)
     {
-        m_commandModel.dataPtrs.push_back(&m_tokenBufferModel.data[m_commandModel.offsets[i]]);
+        // for compiled command-list: using the system memory pointer
+        m_commandModel.dataPtrs.push_back(&m_tokenBufferModel.data[offsets[i]]);
+        // for non compile command-state using the GPU pointers
+        m_commandModel.dataGPUPtrs.push_back(m_tokenBufferModel.bufferAddr + offsets[i]);
     }
     //
     // Create the command-list
@@ -961,9 +973,10 @@ void Bk3dModel::displayObject(const mat4f& cameraView, const mat4f projection, G
             //
             // an emulation of what got captured
             //
-            emucmdlist::nvtokenRenderStatesSW(&m_tokenBufferModel.data[0], m_tokenBufferModel.data.size(), 
-                &m_commandModel.offsets[0], &m_commandModel.sizes[0], 
-                &m_commandModel.stateGroups[0], &m_commandModel.fbos[0], int(m_commandModel.numItems) );
+//TODO
+            //emucmdlist::nvtokenRenderStatesSW(&m_tokenBufferModel.data[0], m_tokenBufferModel.data.size(), 
+            //    &m_commandModel.offsets[0], &m_commandModel.sizes[0], 
+            //    &m_commandModel.stateGroups[0], &m_commandModel.fbos[0], int(m_commandModel.numItems) );
         } else {
             if(g_bUseCallCommandListNV)
                 //
@@ -975,11 +988,11 @@ void Bk3dModel::displayObject(const mat4f& cameraView, const mat4f projection, G
                 //
                 // real Command-list's Token buffer with states execution
                 //
-                int nitems = int(m_commandModel.offsets.size() );
+                int nitems = int(m_commandModel.numItems);
                 if((maxItems > 0)&&(nitems > maxItems))
                     nitems = maxItems;
                 if(nitems)
-                    glDrawCommandsStatesNV(m_tokenBufferModel.bufferID, &m_commandModel.offsets[0], &m_commandModel.sizes[0], &m_commandModel.stateGroups[0], &m_commandModel.fbos[0], nitems); 
+                    glDrawCommandsStatesAddressNV(&m_commandModel.dataGPUPtrs[0], &m_commandModel.sizes[0], &m_commandModel.stateGroups[0], &m_commandModel.fbos[0], nitems); 
             }
             return;
         }
