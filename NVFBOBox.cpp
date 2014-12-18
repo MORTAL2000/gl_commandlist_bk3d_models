@@ -53,81 +53,8 @@
 
 #include <map>
 
-#include "GLSLShader.h"
 #include "helper_fbo.h"
 
-/////////////////////////////////////////////
-// 
-// Class
-//
-/////////////////////////////////////////////
-
-class NVFBOBox : public InvFBOBox
-{
-public:
-	NVFBOBox(); 
-	~NVFBOBox();
-
-	virtual bool Initialize(int w, int h, float ssfact, int depthSamples, int coverageSamples, int tilesW, int tilesH, bool bOneFBOPerTile);
-    virtual bool resize(int w, int h, float ssfact, int depthSamples_, int coverageSamples_);
-    virtual void MakeResourcesResident();
-	virtual void Finish();
-
-	virtual int getTilesW();
-	virtual int getTilesH();
-
-	virtual int getWidth() { return width; }
-	virtual int getHeight() { return height; }
-	virtual int getBufferWidth() { return bufw; }
-	virtual int getBufferHeight() { return bufh; }
-	virtual float getSSFactor() { return scaleFactor; }
-
-	virtual void ActivateBuffer(int tilex, int tiley, GLenum target = GL_FRAMEBUFFER);
-	virtual void Activate(int tilex, int tiley, float m_frustum[][4]);
-	virtual bool ResolveAA(DownSamplingTechnique technique, int tilex, int tiley);
-	virtual void Deactivate();
-	virtual void Draw(DownSamplingTechnique technique, int tilex, int tiley, int windowW, int windowH, float *offset);
-
-	virtual bool PngWriteFile( const char *file);
-	virtual void PngWriteData(DownSamplingTechnique technique, int tilex, int tiley);
-
-    virtual unsigned int GetFBO(int i);
-
-protected:
-
-  bool		  bValid;
-  bool		  bCSAA;
-
-  int		   vpx, vpy, vpw, vph;
-  int		   width, height;
-  int		   bufw, bufh;
-  int		   curtilex, curtiley;
-  float			scaleFactor;
-  int			depthSamples, coverageSamples;
-
-  int		   tilesw, tilesh;
-  bool			bOneFBOPerTile;
-
-  GLSLShader downsampling[3];
-
-  // Let's assume we only want to keep separate data for colors. Depth can be shared
-  GLuint		depth_texture;
-  GLuint		depth_texture_ms;
-  struct TileData
-  {
-	  GLuint		fb;
-	  GLuint		fbms;
-	  GLuint		color_texture_ms;
-	  GLuint		color_texture;
-  };
-  std::vector<TileData> tileData;
-
-	GLint  pngDataSz;	  // size of allocated memory
-	GLubyte *pngData;	  // temporary data for the full image (many tiles)
-	GLubyte *pngDataTile; // temporary data from a tile
-
-  bool		  initRT();
-};
 /////////////////////////////////////////////
 // 
 // Methods
@@ -719,25 +646,6 @@ int NVFBOBox::getTilesW()
 int NVFBOBox::getTilesH()
 {
 	return tilesh;
-}
-/*-------------------------------------------------------------------------
-
-  -------------------------------------------------------------------------*/
-InvFBOBox *createNVFBOBox()
-{
-	return new NVFBOBox();
-}
-
-/*-------------------------------------------------------------------------
-
-  -------------------------------------------------------------------------*/
-void destroyNVFBOBox(InvFBOBox **invFBOBox)
-{
-	if(!invFBOBox) return;
-	if(!*invFBOBox) return;
-	(*invFBOBox)->Finish();
-	delete *invFBOBox;
-	*invFBOBox = NULL;
 }
 
 /*-------------------------------------------------------------------------

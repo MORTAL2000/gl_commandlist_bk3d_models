@@ -4,7 +4,8 @@ Project(${PROJNAME})
 Message(STATUS "-------------------------------")
 Message(STATUS "Processing Project ${PROJNAME}:")
 
-SET(FORCE_MODELS_DOWNLOAD OFF CACHE BOOL "Forces the download operation of 3D models needed for this demo" )
+SET(MODELS_DOWNLOAD_FORCE OFF CACHE BOOL "Forces the download operation of 3D models needed for this demo" )
+SET(MODELS_DOWNLOAD_DISABLED OFF CACHE BOOL "DO NOT try to download 3D models needed for this demo... to avoid getting stuck if slow BW" )
 #####################################################################################
 # offer the choice of having shared_sources as a sub-folder... good for packaging a sample
 #
@@ -44,12 +45,24 @@ file(GLOB SOURCE_FILES *.cpp *.hpp *.inl *.h *.c)
 # download model for this demo to run. Avoids using GitHub for this
 # TODO: we need to put the models online. Should happen next week (>Dec.22)
 #
-#_download_file(
-#  "http://blog.uncovering.org/archives/uploads/2008/ZZ00E5E1F8.jpg"
-#  "${BASE_DIRECTORY}/shared_external/bk3d_models/Amiga500_system.jpg"
-#  ${FORCE_MODELS_DOWNLOAD}
-#)
-
+if(NOT &{MODELS_DOWNLOAD_DISABLED})
+  set(FILELIST 
+  "Jet_134.bk3d.gz"
+  "Driveline_v134.bk3d.gz"
+  "Body_v134.bk3d.gz"
+  "Camera_134.bk3d.gz"
+  "ConceptCar_134.bk3d.gz"
+  "Eiffel_133.bk3d.gz"
+  "Smobby_134.bk3d.gz"
+  "SubMarine_134.bk3d.gz"
+  )
+  _download_files(
+    "${FILELIST}"
+    "http://developer.download.nvidia.com/ProGraphics/nvpro-samples"
+    "${BASE_DIRECTORY}/shared_external/bk3d_models"
+    ${MODELS_DOWNLOAD_FORCE}
+  )
+endif()
 #####################################################################################
 # additional files from helpers
 #

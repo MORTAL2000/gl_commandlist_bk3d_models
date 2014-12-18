@@ -124,10 +124,10 @@ typedef struct {
 } AlphaRefCommandNV;
 
 typedef struct {
-    GLfloat x;
-    GLfloat y;
-    GLfloat width;
-    GLfloat height;
+    GLint x;
+    GLint y;
+    GLsizei width;
+    GLsizei height;
 } ViewportCommandNV;
 
 typedef struct {

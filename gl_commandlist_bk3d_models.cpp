@@ -37,8 +37,8 @@
 class MyWindow: public WindowInertiaCamera
 {
 private:
-    InvFBOBox*  m_fboBox;
-    InvFBOBox::DownSamplingTechnique downsamplingMode;
+    NVFBOBox  m_fboBox;
+    NVFBOBox::DownSamplingTechnique downsamplingMode;
 public:
     MyWindow();
 
@@ -57,7 +57,7 @@ public:
 
 MyWindow::MyWindow() :
     WindowInertiaCamera(vec3f(0.0f,1.0f,-3.0f), vec3f(0,0,0))
-    , downsamplingMode(InvFBOBox::DS2)
+    , downsamplingMode(NVFBOBox::DS2)
 {
 }
 
@@ -223,7 +223,9 @@ static LightBuffer     s_light              = { vec3f(0.4f,0.8f,0.3f) };
 
 static GLuint      s_vao                    = 0;
 
-static TokenBuffer s_tokenBufferGrid;
+static TokenBuffer          s_tokenBufferViewport;
+static TokenBuffer          s_tokenBufferGrid;
+static CommandStatesBatch   s_commandGrid;
 
 //-----------------------------------------------------------------------------
 // Useful stuff for Command-list
@@ -480,7 +482,9 @@ void initTokenInternals()
     registerSize<Token_StencilRef>();
 
     for (int i = 0; i < GL_MAX_COMMANDS_NV; i++){
-    s_header[i] = glGetCommandHeaderNV(i,s_headerSizes[i]);
+        // using i instead of a table of token IDs because the are arranged in the same order as i incrementing.
+        // shortcut for the source code. See gl_nv_command_list.h
+        s_header[i] = glGetCommandHeaderNV(i/*==Token enum*/,s_headerSizes[i]);
     }
     emucmdlist::InitHeaders(s_header, s_headerSizes);
     s_stages[STAGE_VERTEX]          = glGetStageIndexNV(GL_VERTEX_SHADER);
@@ -604,6 +608,77 @@ std::string buildDrawArraysCommand(GLenum topologyGL, GLuint indexCount)
 }
 
 //------------------------------------------------------------------------------
+// 
+//------------------------------------------------------------------------------
+std::string buildViewportCommand(GLint x, GLint y, GLsizei width, GLsizei height)
+{
+    std::string cmd;
+    Token_Viewport dc;
+    dc.cmd.x = x;
+    dc.cmd.y = y;
+    dc.cmd.width = width;
+    dc.cmd.height = height;
+    cmd = std::string((const char*)&dc,sizeof(Token_Viewport));
+    return cmd;
+}
+
+//------------------------------------------------------------------------------
+// 
+//------------------------------------------------------------------------------
+std::string buildBlendColorCommand(GLclampf red,GLclampf green,GLclampf blue,GLclampf alpha)
+{
+    std::string cmd;
+    Token_BlendColor dc;
+    dc.cmd.red = red;
+    dc.cmd.green = green;
+    dc.cmd.blue = blue;
+    dc.cmd.alpha = alpha;
+    cmd = std::string((const char*)&dc,sizeof(Token_BlendColor));
+    return cmd;
+}
+
+//------------------------------------------------------------------------------
+// 
+//------------------------------------------------------------------------------
+std::string buildStencilRefCommand(GLuint frontStencilRef, GLuint backStencilRef)
+{
+    std::string cmd;
+    Token_StencilRef dc;
+    dc.cmd.frontStencilRef = frontStencilRef;
+    dc.cmd.backStencilRef = backStencilRef;
+    cmd = std::string((const char*)&dc,sizeof(Token_StencilRef));
+    return cmd;
+}
+
+//------------------------------------------------------------------------------
+// 
+//------------------------------------------------------------------------------
+std::string buildPolygonOffsetCommand(GLfloat scale, GLfloat bias)
+{
+    std::string cmd;
+    Token_PolygonOffset dc;
+    dc.cmd.bias = bias;
+    dc.cmd.scale = scale;
+    cmd = std::string((const char*)&dc,sizeof(Token_PolygonOffset));
+    return cmd;
+}
+
+//------------------------------------------------------------------------------
+// 
+//------------------------------------------------------------------------------
+std::string buildScissorCommand(GLint x, GLint y, GLsizei width, GLsizei height)
+{
+    std::string cmd;
+    Token_Scissor dc;
+    dc.cmd.x = x;
+    dc.cmd.y = y;
+    dc.cmd.width = width;
+    dc.cmd.height = height;
+    cmd = std::string((const char*)&dc,sizeof(Token_Scissor));
+    return cmd;
+}
+
+//------------------------------------------------------------------------------
 //
 //------------------------------------------------------------------------------
 bool initBuffersGrid()
@@ -649,16 +724,15 @@ bool initBuffersGrid()
 //------------------------------------------------------------------------------
 void cleanTokenBufferGrid()
 {
-    for(int i=0; i<s_tokenBufferGrid.stateGroups.size(); i++)
-        glDeleteStatesNV(1, &s_tokenBufferGrid.stateGroups[i]);
     glDeleteBuffers(1, &s_tokenBufferGrid.bufferID);
+    for(int i=0; i<s_commandGrid.stateGroups.size(); i++)
+        glDeleteStatesNV(1, &s_commandGrid.stateGroups[i]);
     s_tokenBufferGrid.bufferID = 0;
     s_tokenBufferGrid.data.clear();
-    s_tokenBufferGrid.dataPtrs.clear();
-    s_tokenBufferGrid.offsets.clear();
-    s_tokenBufferGrid.sizes.clear();
-    s_tokenBufferGrid.stateGroups.clear();
-    s_tokenBufferGrid.fbos.clear();
+    s_commandGrid.sizes.clear();
+    s_commandGrid.stateGroups.clear();
+    s_commandGrid.fbos.clear();
+    s_commandGrid.numItems = 0;
     s_bRecordGrid       = true;
 }
 //------------------------------------------------------------------------------
@@ -694,6 +768,8 @@ bool recordTokenBufferGrid(GLuint fbo)
     // - issue draw commands
     //
     std::string data = buildUniformAddressCommand(UBO_MATRIX, g_uboMatrix.Addr, g_uboMatrix.Sz, STAGE_VERTEX);
+//data            += buildViewportCommand(0,0,100,100);
+//data            += buildScissorCommand(0,0,800,800);
     data            += buildUniformAddressCommand(UBO_LIGHT, g_uboLight.Addr, g_uboLight.Sz, STAGE_FRAGMENT);
     data            += buildAttributeAddressCommand(0, s_vboGridAddr, s_vboGridSz);
     data            += buildLineWidthCommand(g_Supersampling);
@@ -704,6 +780,8 @@ bool recordTokenBufferGrid(GLuint fbo)
     data            += buildLineWidthCommand(g_Supersampling * 3.0);
     data            += buildAttributeAddressCommand(0, s_vboCrossAddr, s_vboCrossSz);
     data            += buildDrawArraysCommand(GL_LINES, 6);
+    s_tokenBufferGrid.data = data;                      // token buffer containing commands
+    s_tokenBufferGrid.sizeBytes = data.size();
     //
     // Create a state and capture the state-machine of OpenGL
     // *ALL* previously declared states will be taken, plus the topology passed as argument
@@ -713,19 +791,27 @@ bool recordTokenBufferGrid(GLuint fbo)
     emucmdlist::StateCaptureNV(stateId, GL_LINES); // for emulation purpose
     emucmdlist::StateCaptureNV_Extra(stateId, sizeof(vec3f), 3,0, 0,0,0); // for emulation purpose
     //
-    // Push all in our structure, to later consistently invoke the whole
-    // here we have a simple case: only one set of command to execute for a given captured state-group
-    //
-    s_tokenBufferGrid.stateGroups.push_back(stateId);   // state for the set of commands
-    s_tokenBufferGrid.fbos.push_back(fbo);      // FBO in which we render
-    s_tokenBufferGrid.offsets.push_back(0);             // offset of the token buffer cmds
-    s_tokenBufferGrid.sizes.push_back(data.size() );    // size of the token buffer cmd set
-    s_tokenBufferGrid.data = data;                     // token buffer containing commands
-    //
     // Generate the token buffer in which we copy s_tokenBufferGrid.data
     //
     glGenBuffers(1, &s_tokenBufferGrid.bufferID);
-    glNamedBufferDataEXT(s_tokenBufferGrid.bufferID, s_tokenBufferGrid.data.size(), &s_tokenBufferGrid.data[0], GL_STATIC_DRAW);
+    glNamedBufferDataEXT(s_tokenBufferGrid.bufferID, data.size(), &data[0], GL_STATIC_DRAW);
+    glGetNamedBufferParameterui64vNV(s_tokenBufferGrid.bufferID, GL_BUFFER_GPU_ADDRESS_NV, &s_tokenBufferGrid.bufferAddr);
+    glMakeNamedBufferResidentNV(s_tokenBufferGrid.bufferID, GL_READ_WRITE);
+    //
+    // Build the tables for the command-state batch
+    //
+    s_commandGrid.stateGroups.push_back(stateId);   // state for the set of commands
+    s_commandGrid.stateGroups.push_back(stateId);   // state for the set of commands
+    s_commandGrid.fbos.push_back(fbo);              // FBO in which we render
+    s_commandGrid.fbos.push_back(fbo);              // FBO in which we render
+s_commandGrid.dataGPUPtrs.push_back(s_tokenBufferGrid.bufferAddr);
+s_commandGrid.dataPtrs.push_back(&s_tokenBufferGrid.data[0]);
+s_commandGrid.sizes.push_back(s_tokenBufferGrid.sizeBytes );    // size of the token buffer cmd set
+    s_commandGrid.dataGPUPtrs.push_back(s_tokenBufferGrid.bufferAddr);
+    s_commandGrid.dataPtrs.push_back(&s_tokenBufferGrid.data[0]);
+    s_commandGrid.sizes.push_back(s_tokenBufferGrid.sizeBytes );    // size of the token buffer cmd set
+    s_commandGrid.numItems = s_commandGrid.sizes.size();
+
     LOGOK("Token buffer created for Grid\n");
     LOGFLUSH();
 
@@ -776,14 +862,20 @@ void displayGrid(const InertiaCamera& camera, const mat4f projection, GLuint fbo
             //
             // an emulation of what got captured
             //
-            emucmdlist::nvtokenRenderStatesSW(&s_tokenBufferGrid.data[0], s_tokenBufferGrid.data.size(), 
-                &s_tokenBufferGrid.offsets[0], &s_tokenBufferGrid.sizes[0], 
-                &s_tokenBufferGrid.stateGroups[0], &s_tokenBufferGrid.fbos[0], int(s_tokenBufferGrid.offsets.size()) );
+//TOFIX
+            //emucmdlist::nvtokenRenderStatesSW(&s_tokenBufferGrid.data[0], s_tokenBufferGrid.data.size(), 
+            //    &s_commandGrid.offsets[0], &s_commandGrid.sizes[0], 
+            //    &s_commandGrid.stateGroups[0], &s_commandGrid.fbos[0], int(s_commandGrid.numItems ) );
         } else {
             //
             // real Command-list's Token buffer with states execution
             //
-            glDrawCommandsStatesNV(s_tokenBufferGrid.bufferID, &s_tokenBufferGrid.offsets[0], &s_tokenBufferGrid.sizes[0], &s_tokenBufferGrid.stateGroups[0], &s_tokenBufferGrid.fbos[0], int(s_tokenBufferGrid.offsets.size() )); 
+            glDrawCommandsStatesAddressNV(
+                &s_commandGrid.dataGPUPtrs[0], 
+                &s_commandGrid.sizes[0], 
+                &s_commandGrid.stateGroups[0], 
+                &s_commandGrid.fbos[0], 
+                int(s_commandGrid.numItems )); 
         }
         return;
     }
@@ -877,9 +969,8 @@ bool MyWindow::init()
     //
     // some offscreen buffer
     //
-    m_fboBox = createNVFBOBox();
-    m_fboBox->Initialize(m_winSz[0], m_winSz[1], g_Supersampling, s_MSAA, 0);
-    m_fboBox->MakeResourcesResident();
+    m_fboBox.Initialize(m_winSz[0], m_winSz[1], g_Supersampling, s_MSAA, 0);
+    m_fboBox.MakeResourcesResident();
 
     //
     // UI
@@ -901,15 +992,15 @@ bool MyWindow::init()
                 if(!strcmp(pWin->GetID(), "DS"))
                 {
                     MyWindow* p = reinterpret_cast<MyWindow*>(pWin->GetUserData());
-                    p->downsamplingMode = (InvFBOBox::DownSamplingTechnique)pWin->GetItemData(selectedidx);
+                    p->downsamplingMode = (NVFBOBox::DownSamplingTechnique)pWin->GetItemData(selectedidx);
                 }
                 else if(!strcmp(pWin->GetID(), "MSAA"))
                 {
                     s_MSAA = pWin->GetItemData(selectedidx);
                     MyWindow* p = reinterpret_cast<MyWindow*>(pWin->GetUserData());
-                    p->m_fboBox->resize(p->m_winSz[0], p->m_winSz[1], g_Supersampling, s_MSAA);
-                    p->m_fboBox->MakeResourcesResident();
-                    FOREACHMODEL(update_fbo_target(p->m_fboBox->GetFBO()));
+                    p->m_fboBox.resize(p->m_winSz[0], p->m_winSz[1], g_Supersampling, s_MSAA);
+                    p->m_fboBox.MakeResourcesResident();
+                    FOREACHMODEL(update_fbo_target(p->m_fboBox.GetFBO()));
                     // the comman-list needs to be rebuilt when FBO's resources changed
                     #if 1
                     FOREACHMODEL(invalidateCmdList());
@@ -923,9 +1014,9 @@ bool MyWindow::init()
                     g_Supersampling = 0.1f * (float)pWin->GetItemData(selectedidx);
                     glLineWidth(g_Supersampling);
                     MyWindow* p = reinterpret_cast<MyWindow*>(pWin->GetUserData());
-                    p->m_fboBox->resize(p->m_winSz[0], p->m_winSz[1], g_Supersampling, s_MSAA);
-                    p->m_fboBox->MakeResourcesResident();
-                    FOREACHMODEL(update_fbo_target(p->m_fboBox->GetFBO()));
+                    p->m_fboBox.resize(p->m_winSz[0], p->m_winSz[1], g_Supersampling, s_MSAA);
+                    p->m_fboBox.MakeResourcesResident();
+                    FOREACHMODEL(update_fbo_target(p->m_fboBox.GetFBO()));
                     // the comman-list needs to be rebuilt when FBO's resources changed
                     #if 1
                     FOREACHMODEL(invalidateCmdList());
@@ -970,9 +1061,9 @@ bool MyWindow::init()
 
     pCombo = g_pWinHandler->CreateCtrlCombo("DS", "DownSampling mode", g_pToggleContainer);
 	pCombo->SetUserData(this)->Register(&eventUI);
-    pCombo->AddItem("1 tap", InvFBOBox::DS1);
-    pCombo->AddItem("5 taps", InvFBOBox::DS2);
-    pCombo->AddItem("9 taps on alpha", InvFBOBox::DS3);
+    pCombo->AddItem("1 tap", NVFBOBox::DS1);
+    pCombo->AddItem("5 taps", NVFBOBox::DS2);
+    pCombo->AddItem("9 taps on alpha", NVFBOBox::DS3);
     pCombo->SetSelectedByIndex(1);
 
     g_pToggleContainer->UnFold();
@@ -1092,6 +1183,14 @@ bool initGraphics()
     // will make them resident
     //
     initBuffersGrid();
+    //
+    // Create the token command for the Viewport
+    //
+    glGenBuffers(1, &s_tokenBufferViewport.bufferID);
+    s_tokenBufferViewport.data = buildViewportCommand(0, 0, 100, 100);
+    glNamedBufferDataEXT(s_tokenBufferViewport.bufferID, s_tokenBufferViewport.data.size(), &s_tokenBufferViewport.data[0], GL_STATIC_DRAW);
+    glGetNamedBufferParameterui64vNV(s_tokenBufferViewport.bufferID, GL_BUFFER_GPU_ADDRESS_NV, &s_tokenBufferViewport.bufferAddr);
+    glMakeNamedBufferResidentNV(s_tokenBufferViewport.bufferID, GL_READ_WRITE);
     return true;
 }
 //------------------------------------------------------------------------------
@@ -1103,9 +1202,9 @@ void MyWindow::shutdown()
     shutdownMFCUI();
 #endif
 	WindowInertiaCamera::shutdown();
-    if(m_fboBox)
-        m_fboBox->Finish();
-    destroyNVFBOBox(&m_fboBox);
+
+	m_fboBox.Finish();
+
     for(int i=0; i<s_bk3dModels.size(); i++)
     {
         delete s_bk3dModels[i];
@@ -1119,11 +1218,9 @@ void MyWindow::shutdown()
 void MyWindow::reshape(int w, int h)
 {
     WindowInertiaCamera::reshape(w, h);
-    if(m_fboBox)
-    {
-        m_fboBox->resize(w, h);
-        m_fboBox->MakeResourcesResident();
-    }
+    m_fboBox.resize(w, h);
+    m_fboBox.MakeResourcesResident();
+
     glLineWidth(g_Supersampling);
     //
     // the FBOs were destroyed and rebuilt
@@ -1226,14 +1323,14 @@ void MyWindow::display()
     PROFILE_SECTION("MyWindow::display");
 
     // bind the FBO
-    m_fboBox->Activate();
+    m_fboBox.Activate();
 
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
     //glDepthFunc(GL_LEQUAL);
     glDisable(GL_CULL_FACE);
 
-    GLuint fbo = m_fboBox->GetFBO();
+    GLuint fbo = m_fboBox.GetFBO();
     //
     // Grid floor
     //
@@ -1247,8 +1344,8 @@ void MyWindow::display()
     //
     // copy FBO to backbuffer
     //
-    m_fboBox->Deactivate();
-    m_fboBox->Draw(downsamplingMode, 0,0, m_winSz[0], m_winSz[1], NULL);
+    m_fboBox.Deactivate();
+    m_fboBox.Draw(downsamplingMode, 0,0, m_winSz[0], m_winSz[1], NULL);
     //
     // additional HUD stuff
     //
