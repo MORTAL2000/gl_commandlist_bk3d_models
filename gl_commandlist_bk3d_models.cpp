@@ -223,9 +223,10 @@ static LightBuffer     s_light              = { vec3f(0.4f,0.8f,0.3f) };
 
 static GLuint      s_vao                    = 0;
 
-static TokenBuffer          s_tokenBufferViewport;
-static TokenBuffer          s_tokenBufferGrid;
 static CommandStatesBatch   s_commandGrid;
+
+static TokenBuffer          s_tokenBufferGrid;
+TokenBuffer                 g_tokenBufferViewport;
 
 //-----------------------------------------------------------------------------
 // Useful stuff for Command-list
@@ -729,10 +730,7 @@ void cleanTokenBufferGrid()
         glDeleteStatesNV(1, &s_commandGrid.stateGroups[i]);
     s_tokenBufferGrid.bufferID = 0;
     s_tokenBufferGrid.data.clear();
-    s_commandGrid.sizes.clear();
-    s_commandGrid.stateGroups.clear();
-    s_commandGrid.fbos.clear();
-    s_commandGrid.numItems = 0;
+    s_commandGrid.clear();
     s_bRecordGrid       = true;
 }
 //------------------------------------------------------------------------------
@@ -768,8 +766,6 @@ bool recordTokenBufferGrid(GLuint fbo)
     // - issue draw commands
     //
     std::string data = buildUniformAddressCommand(UBO_MATRIX, g_uboMatrix.Addr, g_uboMatrix.Sz, STAGE_VERTEX);
-//data            += buildViewportCommand(0,0,100,100);
-//data            += buildScissorCommand(0,0,800,800);
     data            += buildUniformAddressCommand(UBO_LIGHT, g_uboLight.Addr, g_uboLight.Sz, STAGE_FRAGMENT);
     data            += buildAttributeAddressCommand(0, s_vboGridAddr, s_vboGridSz);
     data            += buildLineWidthCommand(g_Supersampling);
@@ -781,7 +777,6 @@ bool recordTokenBufferGrid(GLuint fbo)
     data            += buildAttributeAddressCommand(0, s_vboCrossAddr, s_vboCrossSz);
     data            += buildDrawArraysCommand(GL_LINES, 6);
     s_tokenBufferGrid.data = data;                      // token buffer containing commands
-    s_tokenBufferGrid.sizeBytes = data.size();
     //
     // Create a state and capture the state-machine of OpenGL
     // *ALL* previously declared states will be taken, plus the topology passed as argument
@@ -800,17 +795,16 @@ bool recordTokenBufferGrid(GLuint fbo)
     //
     // Build the tables for the command-state batch
     //
-    s_commandGrid.stateGroups.push_back(stateId);   // state for the set of commands
-    s_commandGrid.stateGroups.push_back(stateId);   // state for the set of commands
-    s_commandGrid.fbos.push_back(fbo);              // FBO in which we render
-    s_commandGrid.fbos.push_back(fbo);              // FBO in which we render
-s_commandGrid.dataGPUPtrs.push_back(s_tokenBufferGrid.bufferAddr);
-s_commandGrid.dataPtrs.push_back(&s_tokenBufferGrid.data[0]);
-s_commandGrid.sizes.push_back(s_tokenBufferGrid.sizeBytes );    // size of the token buffer cmd set
-    s_commandGrid.dataGPUPtrs.push_back(s_tokenBufferGrid.bufferAddr);
-    s_commandGrid.dataPtrs.push_back(&s_tokenBufferGrid.data[0]);
-    s_commandGrid.sizes.push_back(s_tokenBufferGrid.sizeBytes );    // size of the token buffer cmd set
-    s_commandGrid.numItems = s_commandGrid.sizes.size();
+    // token buffer for the viewport setting
+    s_commandGrid.pushBatch(stateId, fbo, 
+        g_tokenBufferViewport.bufferAddr, 
+        &g_tokenBufferViewport.data[0], 
+        g_tokenBufferViewport.data.size() );
+    // token buffer for drawing the grid
+    s_commandGrid.pushBatch(stateId, fbo, 
+        s_tokenBufferGrid.bufferAddr,
+        &s_tokenBufferGrid.data[0],
+        s_tokenBufferGrid.data.size() );
 
     LOGOK("Token buffer created for Grid\n");
     LOGFLUSH();
@@ -1136,6 +1130,52 @@ bool MyWindow::init()
 }
 
 //------------------------------------------------------------------------------
+// this is an example of creating a piece of token buffer that would be put
+// as a header before every single glDrawCommandsStatesAddressNV so that
+// proper view setup (viewport) get properly done without relying on any
+// typical OpenGL command.
+// this approach is good avoid messing with OpenGL state machine and later could
+// prevent extra driver validation
+//------------------------------------------------------------------------------
+void updateViewportTokenBuffer(GLint x, GLint y, GLsizei width, GLsizei height)
+{
+    // could have way more commands here...
+    // ...
+    if(g_tokenBufferViewport.bufferAddr == NULL)
+    {
+        // first time: create
+        g_tokenBufferViewport.data  = buildViewportCommand(x,y,width, height);
+        glGenBuffers(1, &g_tokenBufferViewport.bufferID);
+        glNamedBufferDataEXT(
+            g_tokenBufferViewport.bufferID, 
+            g_tokenBufferViewport.data.size(), 
+            &g_tokenBufferViewport.data[0], GL_STATIC_DRAW);
+        glGetNamedBufferParameterui64vNV(
+            g_tokenBufferViewport.bufferID, 
+            GL_BUFFER_GPU_ADDRESS_NV, 
+            &g_tokenBufferViewport.bufferAddr);
+        glMakeNamedBufferResidentNV(
+            g_tokenBufferViewport.bufferID, 
+            GL_READ_WRITE);
+    } else {
+        // change arguments in the token buffer: better keep the same system memory pointer, too:
+        // CPU system memory used by the command-list compilation
+        // this is a simple use-case here: only one token cmd with related structure...
+        //
+        Token_Viewport *dc = (Token_Viewport *)&g_tokenBufferViewport.data[0];
+        dc->cmd.x = x;
+        dc->cmd.y = y;
+        dc->cmd.width = width;
+        dc->cmd.height = height;
+        //
+        // just update. Offset is always 0 in our simple case
+        glNamedBufferSubDataEXT(
+            g_tokenBufferViewport.bufferID, 
+            0/*offset*/, g_tokenBufferViewport.data.size(), 
+            &g_tokenBufferViewport.data[0]);
+    }
+}
+//------------------------------------------------------------------------------
 //
 //------------------------------------------------------------------------------
 bool initGraphics()
@@ -1183,14 +1223,6 @@ bool initGraphics()
     // will make them resident
     //
     initBuffersGrid();
-    //
-    // Create the token command for the Viewport
-    //
-    glGenBuffers(1, &s_tokenBufferViewport.bufferID);
-    s_tokenBufferViewport.data = buildViewportCommand(0, 0, 100, 100);
-    glNamedBufferDataEXT(s_tokenBufferViewport.bufferID, s_tokenBufferViewport.data.size(), &s_tokenBufferViewport.data[0], GL_STATIC_DRAW);
-    glGetNamedBufferParameterui64vNV(s_tokenBufferViewport.bufferID, GL_BUFFER_GPU_ADDRESS_NV, &s_tokenBufferViewport.bufferAddr);
-    glMakeNamedBufferResidentNV(s_tokenBufferViewport.bufferID, GL_READ_WRITE);
     return true;
 }
 //------------------------------------------------------------------------------
@@ -1220,6 +1252,10 @@ void MyWindow::reshape(int w, int h)
     WindowInertiaCamera::reshape(w, h);
     m_fboBox.resize(w, h);
     m_fboBox.MakeResourcesResident();
+    //
+    // update the token buffer in which the viewport setup happens for token rendering
+    //
+    updateViewportTokenBuffer(0,0,w,h);
 
     glLineWidth(g_Supersampling);
     //

@@ -163,7 +163,6 @@ void Bk3dModel::deleteCommandListData()
     m_tokenBufferModel.bufferAddr = NULL;
     m_tokenBufferModel.bufferID = 0;
     m_tokenBufferModel.data.clear();
-    m_tokenBufferModel.sizeBytes = 0;
 
     // delete FBOs... m_tokenBufferModel.fbos
     for(int i=0; i<m_commandModel.stateGroups.size(); i++)
@@ -331,6 +330,18 @@ int Bk3dModel::recordMeshes(GLenum topology, std::vector<int> &offsets, GLsizei 
 
     BO curVBO;
     BO curEBO;
+
+    // token buffer for the viewport setting. Need to have a state object and a fbo
+    // would be better to use the same as the next state created by the mesh (see below: findStateOrCreate...)
+    // but easier to write the code in this case:
+    glCreateStatesNV(1, &curState);
+    glStateCaptureNV(curState, GL_TRIANGLES);
+    emucmdlist::StateCaptureNV(curState, GL_TRIANGLES); // for emulation purpose
+    m_commandModel.pushBatch(curState, m_fboMSAA8x, 
+        g_tokenBufferViewport.bufferAddr, 
+        &g_tokenBufferViewport.data[0], 
+        g_tokenBufferViewport.data.size() );
+    curState = -1;
 
     // Hack: my captured models do have a bad geometry in mesh #0... start with 1
     for(int i=1; i< m_meshFile->pMeshes->n; i++)
@@ -539,7 +550,7 @@ void Bk3dModel::init_command_list()
     glCreateCommandListsNV(1, &m_commandList);
     {
         glCommandListSegmentsNV(m_commandList, 1);
-        glListDrawCommandsStatesClientNV(m_commandList, 0, &m_commandModel.dataPtrs[0], &m_commandModel.sizes[0], &m_commandModel.stateGroups[0], &m_commandModel.fbos[0], int(m_tokenBufferModel.sizeBytes)); 
+        glListDrawCommandsStatesClientNV(m_commandList, 0, &m_commandModel.dataPtrs[0], &m_commandModel.sizes[0], &m_commandModel.stateGroups[0], &m_commandModel.fbos[0], int(m_commandModel.fbos.size() )); 
     }
     glCompileCommandListNV(m_commandList);
 }
@@ -611,7 +622,6 @@ bool Bk3dModel::recordTokenBufferObject(GLuint m_fboMSAA8x)
         LOGFLUSH();
         break;
     }
-    m_tokenBufferModel.sizeBytes = m_tokenBufferModel.data.size();
     //
     // create the buffer object for this token buffer:
     //

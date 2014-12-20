@@ -125,20 +125,38 @@ struct TokenBuffer
     GLuint                  bufferID;   // buffer containing all
     GLuint64EXT             bufferAddr; // buffer GPU-pointer
     std::string             data;       // bytes of data containing the structures to send to the driver
-    size_t                  sizeBytes;
 };
 //
 // Grouping together what is needed to issue a single command made of many states, fbos and Token Buffer pointers
 //
 struct CommandStatesBatch
 {
+    void clear()
+    {
+        for(int i=0; i<stateGroups.size(); i++)
+            glDeleteStatesNV(1, &stateGroups[i]);
+        sizes.clear();
+        stateGroups.clear();
+        fbos.clear();
+        numItems = 0;
+    }
+    void pushBatch(GLuint stateGroup_, GLuint fbo_, GLuint64EXT dataGPUPtr_, const GLvoid* dataPtr_, GLsizei size_)
+    {
+        dataGPUPtrs.push_back(dataGPUPtr_);
+        dataPtrs.push_back(dataPtr_);
+        sizes.push_back(size_);
+        stateGroups.push_back(stateGroup_);
+        fbos.push_back(fbo_);
+        numItems = fbos.size();
+    }
     std::vector<const GLuint64EXT> dataGPUPtrs;   // pointer in data where to locate each separate groups (for glListDrawCommandsStatesClientNV)
     std::vector<const GLvoid*>     dataPtrs;   // pointer in data where to locate each separate groups (for glListDrawCommandsStatesClientNV)
     std::vector<GLsizei>    sizes;      // sizes of each groups
     std::vector<GLuint>     stateGroups;// state-group IDs used for each groups
     std::vector<GLuint>     fbos;       // FBOs being used for each groups
-    size_t                  numItems;
+    size_t                  numItems;   // == fbos.size() or sizes.size()...
 };
+extern TokenBuffer g_tokenBufferViewport;
 
 //
 // Externs
