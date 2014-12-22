@@ -856,10 +856,8 @@ void displayGrid(const InertiaCamera& camera, const mat4f projection, GLuint fbo
             //
             // an emulation of what got captured
             //
-//TOFIX
-            //emucmdlist::nvtokenRenderStatesSW(&s_tokenBufferGrid.data[0], s_tokenBufferGrid.data.size(), 
-            //    &s_commandGrid.offsets[0], &s_commandGrid.sizes[0], 
-            //    &s_commandGrid.stateGroups[0], &s_commandGrid.fbos[0], int(s_commandGrid.numItems ) );
+            emucmdlist::nvtokenRenderStatesSW(&s_commandGrid.dataPtrs[0], &s_commandGrid.sizes[0], 
+                &s_commandGrid.stateGroups[0], &s_commandGrid.fbos[0], int(s_commandGrid.numItems ) );
         } else {
             //
             // real Command-list's Token buffer with states execution

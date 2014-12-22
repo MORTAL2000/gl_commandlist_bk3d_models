@@ -56,8 +56,7 @@ namespace emucmdlist
       );
   extern void StateApply(GLuint curID, GLuint prevID=~0);
   //extern GLenum nvtokenRenderSW( const void* stream, size_t streamSize, GLenum mode, GLenum type);
-  extern void nvtokenRenderStatesSW(const void* __restrict stream, size_t streamSize, 
-    const GLintptr* __restrict offsets, const GLsizei* __restrict sizes, 
+  extern void nvtokenRenderStatesSW(const GLvoid** __restrict ptrs, const GLsizei* __restrict sizes, 
     const GLuint* __restrict states, const GLuint* __restrict fbos, GLuint count);
 #else
   MapStates mapStates;
@@ -280,8 +279,7 @@ namespace emucmdlist
     return type;
   }
 
-  void nvtokenRenderStatesSW(const void* __restrict stream, size_t streamSize, 
-    const GLintptr* __restrict offsets, const GLsizei* __restrict sizes, 
+  void nvtokenRenderStatesSW(const GLvoid** __restrict ptrs, const GLsizei* __restrict sizes, 
     const GLuint* __restrict states, const GLuint* __restrict fbos, GLuint count)
   {
     glEnableClientState(GL_VERTEX_ATTRIB_ARRAY_UNIFIED_NV);
@@ -289,7 +287,6 @@ namespace emucmdlist
     glEnableClientState(GL_UNIFORM_BUFFER_UNIFIED_NV);
     int lastFbo = ~0;
     int lastID = ~0;
-    const char* __restrict tokens = (const char*)stream;
 
     GLenum type = GL_UNSIGNED_SHORT;
     for (GLuint i = 0; i < count; i++)
@@ -321,12 +318,7 @@ namespace emucmdlist
       }
       lastID = curID;
 
-      size_t offset = offsets[i];
-      size_t size   = sizes[i];
-
-      assert(size + offset <= streamSize);
-
-      type = nvtokenRenderSW(&tokens[offset], size, state.mode, type);
+      type = nvtokenRenderSW((const char*)ptrs[i], sizes[i], state.mode, type);
     }
     glDisableClientState(GL_VERTEX_ATTRIB_ARRAY_UNIFIED_NV);
     glDisableClientState(GL_ELEMENT_ARRAY_UNIFIED_NV);

@@ -331,19 +331,10 @@ int Bk3dModel::recordMeshes(GLenum topology, std::vector<int> &offsets, GLsizei 
     BO curVBO;
     BO curEBO;
 
-    // token buffer for the viewport setting. Need to have a state object and a fbo
-    // would be better to use the same as the next state created by the mesh (see below: findStateOrCreate...)
-    // but easier to write the code in this case:
-    glCreateStatesNV(1, &curState);
-    glStateCaptureNV(curState, GL_TRIANGLES);
-    emucmdlist::StateCaptureNV(curState, GL_TRIANGLES); // for emulation purpose
-    m_commandModel.pushBatch(curState, m_fboMSAA8x, 
-        g_tokenBufferViewport.bufferAddr, 
-        &g_tokenBufferViewport.data[0], 
-        g_tokenBufferViewport.data.size() );
-    curState = -1;
-
-    // Hack: my captured models do have a bad geometry in mesh #0... start with 1
+    //////////////////////////////////////////////
+    // Loop through meshes
+    //
+    // Hack: my captured models do have a bad geometry in mesh #0... *start with 1*
     for(int i=1; i< m_meshFile->pMeshes->n; i++)
 	{
 		bk3d::Mesh *pMesh = m_meshFile->pMeshes->p[i];
@@ -411,8 +402,8 @@ int Bk3dModel::recordMeshes(GLenum topology, std::vector<int> &offsets, GLsizei 
         for(int a=s; a<prevNAttr; a++)
 	        glDisableVertexAttribArray(a);
         prevNAttr = n;
-        //
-        // Primitive groups
+        ////////////////////////////////////////
+        // Primitive groups in the mesh
         //
         for(int pg=0; pg<pMesh->pPrimGroups->n; pg++)
         {
@@ -586,7 +577,20 @@ bool Bk3dModel::recordTokenBufferObject(GLuint m_fboMSAA8x)
     glEnableClientState(GL_ELEMENT_ARRAY_UNIFIED_NV);
     glEnableClientState(GL_UNIFORM_BUFFER_UNIFIED_NV);
 
+    // token buffer for the viewport setting. Need to have a state object and a fbo
+    // would be better to use the same as the next state created by the mesh (see below: findStateOrCreate...)
+    // but easier to write the code in this case:
+    GLuint st;
+    glCreateStatesNV(1, &st);
+    glStateCaptureNV(st, GL_TRIANGLES);
+    emucmdlist::StateCaptureNV(st, GL_TRIANGLES); // for emulation purpose
+    m_commandModel.pushBatch(st, m_fboMSAA8x, 
+        g_tokenBufferViewport.bufferAddr, 
+        &g_tokenBufferViewport.data[0], 
+        g_tokenBufferViewport.data.size() );
+    //
     // Walk through meshes as if we were traversing a scene...
+    //
     LOGI("Creating a command-Buffer for %d Meshes\n", m_meshFile->pMeshes->n);
     LOGFLUSH();
     m_tokenBufferModel.data += buildLineWidthCommand(g_Supersampling);
@@ -605,6 +609,9 @@ bool Bk3dModel::recordTokenBufferObject(GLuint m_fboMSAA8x)
     case 1:
         LOGI("Sorting by primitive types\n", m_meshFile->pMeshes->n);
         LOGFLUSH();
+        nDCs = recordMeshes(GL_LINES, offsets, tokenTableOffset, totalDCs, m_fboMSAA8x);
+        LOGI("GL_LINES: %d\n", nDCs);
+        LOGFLUSH();
         nDCs = recordMeshes(GL_TRIANGLES, offsets, tokenTableOffset, totalDCs, m_fboMSAA8x);
         LOGI("GL_TRIANGLES/STRIP: %d\n", nDCs);
         LOGFLUSH();
@@ -613,9 +620,6 @@ bool Bk3dModel::recordTokenBufferObject(GLuint m_fboMSAA8x)
         LOGFLUSH();
         nDCs = recordMeshes(GL_QUADS, offsets, tokenTableOffset, totalDCs, m_fboMSAA8x);
         LOGI("GL_QUADS/STRIP: %d\n", nDCs);
-        LOGFLUSH();
-        nDCs = recordMeshes(GL_LINES, offsets, tokenTableOffset, totalDCs, m_fboMSAA8x);
-        LOGI("GL_LINES: %d\n", nDCs);
         LOGFLUSH();
         nDCs = recordMeshes(GL_POINTS, offsets, tokenTableOffset, totalDCs, m_fboMSAA8x);
         LOGI("GL_POINTS: %d\n", nDCs);
@@ -637,8 +641,8 @@ bool Bk3dModel::recordTokenBufferObject(GLuint m_fboMSAA8x)
     // create a table of client pointer (system memory) for command-list
     // we do it at the end because STL might have re-allocated the 'data' system-memory along the previous process
     //
-    m_commandModel.numItems = offsets.size();
-    for(int i=0; i<m_commandModel.numItems; i++)
+    m_commandModel.numItems += offsets.size(); // add these batches to the existing one (viewport tokencmd)
+    for(int i=0; i<offsets.size(); i++)
     {
         // for compiled command-list: using the system memory pointer
         m_commandModel.dataPtrs.push_back(&m_tokenBufferModel.data[offsets[i]]);
@@ -983,10 +987,8 @@ void Bk3dModel::displayObject(const mat4f& cameraView, const mat4f projection, G
             //
             // an emulation of what got captured
             //
-//TODO
-            //emucmdlist::nvtokenRenderStatesSW(&m_tokenBufferModel.data[0], m_tokenBufferModel.data.size(), 
-            //    &m_commandModel.offsets[0], &m_commandModel.sizes[0], 
-            //    &m_commandModel.stateGroups[0], &m_commandModel.fbos[0], int(m_commandModel.numItems) );
+            emucmdlist::nvtokenRenderStatesSW(&m_commandModel.dataPtrs[0], &m_commandModel.sizes[0], 
+                &m_commandModel.stateGroups[0], &m_commandModel.fbos[0], int(m_commandModel.numItems) );
         } else {
             if(g_bUseCallCommandListNV)
                 //
