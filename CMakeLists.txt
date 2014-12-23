@@ -45,7 +45,7 @@ file(GLOB SOURCE_FILES *.cpp *.hpp *.inl *.h *.c)
 # download model for this demo to run. Avoids using GitHub for this
 # TODO: we need to put the models online. Should happen next week (>Dec.22)
 #
-if(NOT &{MODELS_DOWNLOAD_DISABLED})
+if(NOT ${MODELS_DOWNLOAD_DISABLED})
   set(FILELIST 
   "Jet_134.bk3d.gz"
   "Driveline_v134.bk3d.gz"
