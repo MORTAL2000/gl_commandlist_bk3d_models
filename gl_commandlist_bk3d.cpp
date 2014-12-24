@@ -158,21 +158,18 @@ Bk3dModel::~Bk3dModel()
 void Bk3dModel::deleteCommandListData()
 {
     releaseState(0); // 0 : release all
+    // delete FBOs... m_tokenBufferModel.fbos
+    for(int i=0; i<m_tokenBufferModel.stateGroups.size(); i++)
+        glDeleteStatesNV(1, &m_tokenBufferModel.stateGroups[i]);
     if(m_tokenBufferModel.bufferID)
         glDeleteBuffers(1, &m_tokenBufferModel.bufferID);
-    m_tokenBufferModel.bufferAddr = NULL;
-    m_tokenBufferModel.bufferID = 0;
     m_tokenBufferModel.data.clear();
-
-    // delete FBOs... m_tokenBufferModel.fbos
-    for(int i=0; i<m_commandModel.stateGroups.size(); i++)
-        glDeleteStatesNV(1, &m_commandModel.stateGroups[i]);
-    m_commandModel.dataPtrs.clear();
-    m_commandModel.sizes.clear();
-    m_commandModel.fbos.clear();
-    m_commandModel.stateGroups.clear();
-    m_commandModel.numItems = 0;
-
+    m_tokenBufferModel.offsets.clear();
+    m_tokenBufferModel.dataPtrs.clear();
+    m_tokenBufferModel.sizes.clear();
+    m_tokenBufferModel.fbos.clear();
+    m_tokenBufferModel.stateGroups.clear();
+    m_tokenBufferModel.bufferID = 0;
     m_bRecordObject     = true;
     if(m_commandList)
         glDeleteCommandListsNV(1, &m_commandList);
@@ -315,7 +312,7 @@ bool Bk3dModel::compareAttribs(bk3d::Mesh* pPrevMesh, bk3d::Mesh* pMesh)
 // topology to 0 means we just build things as we get them
 // specific topology will only retain these ones
 //------------------------------------------------------------------------------
-int Bk3dModel::recordMeshes(GLenum topology, std::vector<int> &offsets, GLsizei &tokenTableOffset, int &totalDCs, GLuint m_fboMSAA8x)
+int Bk3dModel::recordMeshes(GLenum topology, GLsizei &tokenTableOffset, int &totalDCs, GLuint m_fboMSAA8x)
 {
     int nDCs = 0;
     // first default state capture
@@ -331,10 +328,7 @@ int Bk3dModel::recordMeshes(GLenum topology, std::vector<int> &offsets, GLsizei 
     BO curVBO;
     BO curEBO;
 
-    //////////////////////////////////////////////
-    // Loop through meshes
-    //
-    // Hack: my captured models do have a bad geometry in mesh #0... *start with 1*
+    // Hack: my captured models do have a bad geometry in mesh #0... start with 1
     for(int i=1; i< m_meshFile->pMeshes->n; i++)
 	{
 		bk3d::Mesh *pMesh = m_meshFile->pMeshes->p[i];
@@ -365,12 +359,12 @@ int Bk3dModel::recordMeshes(GLenum topology, std::vector<int> &offsets, GLsizei 
             {
                 // search for a state already available for our needs
                 curState = findStateOrCreate(pPrevMesh, pPrevPG);
-                m_commandModel.stateGroups.push_back(curState);
-                m_commandModel.fbos.push_back(m_fboMSAA8x);
+                m_tokenBufferModel.stateGroups.push_back(curState);
+                m_tokenBufferModel.fbos.push_back(m_fboMSAA8x);
 
                 // store the size of the token table
-                m_commandModel.sizes.push_back((GLsizei)m_tokenBufferModel.data.size() - tokenTableOffset);
-                offsets.push_back(tokenTableOffset);
+                m_tokenBufferModel.sizes.push_back((GLsizei)m_tokenBufferModel.data.size() - tokenTableOffset);
+                m_tokenBufferModel.offsets.push_back(tokenTableOffset);
 
                 // new offset and ptr
                 tokenTableOffset = (GLsizei)m_tokenBufferModel.data.size();
@@ -402,8 +396,8 @@ int Bk3dModel::recordMeshes(GLenum topology, std::vector<int> &offsets, GLsizei 
         for(int a=s; a<prevNAttr; a++)
 	        glDisableVertexAttribArray(a);
         prevNAttr = n;
-        ////////////////////////////////////////
-        // Primitive groups in the mesh
+        //
+        // Primitive groups
         //
         for(int pg=0; pg<pMesh->pPrimGroups->n; pg++)
         {
@@ -454,12 +448,12 @@ int Bk3dModel::recordMeshes(GLenum topology, std::vector<int> &offsets, GLsizei 
             {
                 // search for a state already available for our needs
                 curState = findStateOrCreate(pMesh, pPrevPG);
-                m_commandModel.stateGroups.push_back(curState);
-                m_commandModel.fbos.push_back(m_fboMSAA8x);
+                m_tokenBufferModel.stateGroups.push_back(curState);
+                m_tokenBufferModel.fbos.push_back(m_fboMSAA8x);
 
                 // store the size of the token table
-                m_commandModel.sizes.push_back((GLsizei)m_tokenBufferModel.data.size() - tokenTableOffset);
-                offsets.push_back(tokenTableOffset);
+                m_tokenBufferModel.sizes.push_back((GLsizei)m_tokenBufferModel.data.size() - tokenTableOffset);
+                m_tokenBufferModel.offsets.push_back(tokenTableOffset);
 
                 // new offset
                 tokenTableOffset = (GLsizei)m_tokenBufferModel.data.size();
@@ -516,12 +510,12 @@ int Bk3dModel::recordMeshes(GLenum topology, std::vector<int> &offsets, GLsizei 
     {
         // search for a state already available for our needs
         curState = findStateOrCreate(pPrevMesh, pPrevPG);
-        m_commandModel.stateGroups.push_back(curState);
-        m_commandModel.fbos.push_back(m_fboMSAA8x);
+        m_tokenBufferModel.stateGroups.push_back(curState);
+        m_tokenBufferModel.fbos.push_back(m_fboMSAA8x);
 
         // store the size of the token table
-        m_commandModel.sizes.push_back((GLsizei)m_tokenBufferModel.data.size() - tokenTableOffset);
-        offsets.push_back(tokenTableOffset);
+        m_tokenBufferModel.sizes.push_back((GLsizei)m_tokenBufferModel.data.size() - tokenTableOffset);
+        m_tokenBufferModel.offsets.push_back(tokenTableOffset);
 
         // new offset and ptr
         tokenTableOffset = (GLsizei)m_tokenBufferModel.data.size();
@@ -541,7 +535,7 @@ void Bk3dModel::init_command_list()
     glCreateCommandListsNV(1, &m_commandList);
     {
         glCommandListSegmentsNV(m_commandList, 1);
-        glListDrawCommandsStatesClientNV(m_commandList, 0, &m_commandModel.dataPtrs[0], &m_commandModel.sizes[0], &m_commandModel.stateGroups[0], &m_commandModel.fbos[0], int(m_commandModel.fbos.size() )); 
+        glListDrawCommandsStatesClientNV(m_commandList, 0, &m_tokenBufferModel.dataPtrs[0], &m_tokenBufferModel.sizes[0], &m_tokenBufferModel.stateGroups[0], &m_tokenBufferModel.fbos[0], int(m_tokenBufferModel.offsets.size())); 
     }
     glCompileCommandListNV(m_commandList);
 }
@@ -553,8 +547,8 @@ void Bk3dModel::init_command_list()
 void Bk3dModel::update_fbo_target(GLuint fbo)
 {
     // simple case now: same for all
-    for(int i=0; i<m_commandModel.fbos.size(); i++)
-        m_commandModel.fbos[i] = fbo;
+    for(int i=0; i<m_tokenBufferModel.fbos.size(); i++)
+        m_tokenBufferModel.fbos[i] = fbo;
 }
 //------------------------------------------------------------------------------
 // build token buffer, states objects and commandList for the 3D Object
@@ -571,26 +565,12 @@ bool Bk3dModel::recordTokenBufferObject(GLuint m_fboMSAA8x)
         return false;
 
     GLsizei tokenTableOffset = 0;
-    std::vector<int> offsets;
 
     glEnableClientState(GL_VERTEX_ATTRIB_ARRAY_UNIFIED_NV);
     glEnableClientState(GL_ELEMENT_ARRAY_UNIFIED_NV);
     glEnableClientState(GL_UNIFORM_BUFFER_UNIFIED_NV);
 
-    // token buffer for the viewport setting. Need to have a state object and a fbo
-    // would be better to use the same as the next state created by the mesh (see below: findStateOrCreate...)
-    // but easier to write the code in this case:
-    GLuint st;
-    glCreateStatesNV(1, &st);
-    glStateCaptureNV(st, GL_TRIANGLES);
-    emucmdlist::StateCaptureNV(st, GL_TRIANGLES); // for emulation purpose
-    m_commandModel.pushBatch(st, m_fboMSAA8x, 
-        g_tokenBufferViewport.bufferAddr, 
-        &g_tokenBufferViewport.data[0], 
-        g_tokenBufferViewport.data.size() );
-    //
     // Walk through meshes as if we were traversing a scene...
-    //
     LOGI("Creating a command-Buffer for %d Meshes\n", m_meshFile->pMeshes->n);
     LOGFLUSH();
     m_tokenBufferModel.data += buildLineWidthCommand(g_Supersampling);
@@ -604,24 +584,24 @@ bool Bk3dModel::recordTokenBufferObject(GLuint m_fboMSAA8x)
     switch(g_TokenBufferGrouping)
     {
     case 0:
-        nDCs = recordMeshes(-1, offsets, tokenTableOffset, totalDCs, m_fboMSAA8x);
+        nDCs = recordMeshes(-1, tokenTableOffset, totalDCs, m_fboMSAA8x);
         break;
     case 1:
         LOGI("Sorting by primitive types\n", m_meshFile->pMeshes->n);
         LOGFLUSH();
-        nDCs = recordMeshes(GL_LINES, offsets, tokenTableOffset, totalDCs, m_fboMSAA8x);
-        LOGI("GL_LINES: %d\n", nDCs);
-        LOGFLUSH();
-        nDCs = recordMeshes(GL_TRIANGLES, offsets, tokenTableOffset, totalDCs, m_fboMSAA8x);
+        nDCs = recordMeshes(GL_TRIANGLES, tokenTableOffset, totalDCs, m_fboMSAA8x);
         LOGI("GL_TRIANGLES/STRIP: %d\n", nDCs);
         LOGFLUSH();
-        nDCs = recordMeshes(GL_TRIANGLE_FAN, offsets, tokenTableOffset, totalDCs, m_fboMSAA8x);
+        nDCs = recordMeshes(GL_TRIANGLE_FAN, tokenTableOffset, totalDCs, m_fboMSAA8x);
         LOGI("GL_TRIANGLE_FAN: %d\n", nDCs);
         LOGFLUSH();
-        nDCs = recordMeshes(GL_QUADS, offsets, tokenTableOffset, totalDCs, m_fboMSAA8x);
+        nDCs = recordMeshes(GL_QUADS, tokenTableOffset, totalDCs, m_fboMSAA8x);
         LOGI("GL_QUADS/STRIP: %d\n", nDCs);
         LOGFLUSH();
-        nDCs = recordMeshes(GL_POINTS, offsets, tokenTableOffset, totalDCs, m_fboMSAA8x);
+        nDCs = recordMeshes(GL_LINES, tokenTableOffset, totalDCs, m_fboMSAA8x);
+        LOGI("GL_LINES: %d\n", nDCs);
+        LOGFLUSH();
+        nDCs = recordMeshes(GL_POINTS, tokenTableOffset, totalDCs, m_fboMSAA8x);
         LOGI("GL_POINTS: %d\n", nDCs);
         LOGFLUSH();
         break;
@@ -631,23 +611,16 @@ bool Bk3dModel::recordTokenBufferObject(GLuint m_fboMSAA8x)
     //
     glGenBuffers(1, &m_tokenBufferModel.bufferID);
     glNamedBufferDataEXT(m_tokenBufferModel.bufferID, m_tokenBufferModel.data.size(), &m_tokenBufferModel.data[0], GL_STATIC_DRAW);
-    // get the 64 bits pointer and make it resident: bedcause we will go through its pointer
-    glGetNamedBufferParameterui64vNV(m_tokenBufferModel.bufferID, GL_BUFFER_GPU_ADDRESS_NV, &m_tokenBufferModel.bufferAddr);
-    glMakeNamedBufferResidentNV(m_tokenBufferModel.bufferID, GL_READ_ONLY);
-    LOGOK("Token buffer of %.2f kb created for %d state changes and %d Drawcalls\n", (float)m_tokenBufferModel.data.size()/1024.0, m_commandModel.stateGroups.size(), totalDCs);
+    LOGOK("Token buffer of %.2f kb created for %d state changes and %d Drawcalls\n", (float)m_tokenBufferModel.data.size()/1024.0, m_tokenBufferModel.stateGroups.size(), totalDCs);
     LOGOK("Total of %d primitives\n", m_stats.primitives);
     LOGFLUSH();
     //
     // create a table of client pointer (system memory) for command-list
-    // we do it at the end because STL might have re-allocated the 'data' system-memory along the previous process
+    // we do it at the end because STL might have re-allocated the 'data' memory along the previous process
     //
-    m_commandModel.numItems += offsets.size(); // add these batches to the existing one (viewport tokencmd)
-    for(int i=0; i<offsets.size(); i++)
+    for(int i=0; i<m_tokenBufferModel.offsets.size(); i++)
     {
-        // for compiled command-list: using the system memory pointer
-        m_commandModel.dataPtrs.push_back(&m_tokenBufferModel.data[offsets[i]]);
-        // for non compile command-state using the GPU pointers
-        m_commandModel.dataGPUPtrs.push_back(m_tokenBufferModel.bufferAddr + offsets[i]);
+        m_tokenBufferModel.dataPtrs.push_back(&m_tokenBufferModel.data[m_tokenBufferModel.offsets[i]]);
     }
     //
     // Create the command-list
@@ -900,16 +873,11 @@ bool Bk3dModel::loadModel()
     if(!(m_meshFile = bk3d::load(m_name.c_str() )))
     {
         std::string modelPathName;
-        modelPathName = std::string(PROJECT_RELDIRECTORY) + std::string("../shared_external/bk3d_models/") + m_name;
+        modelPathName = std::string(PROJECT_RELDIRECTORY) + m_name;
         if(!(m_meshFile = bk3d::load(modelPathName.c_str())))
         {
-            modelPathName = std::string(PROJECT_RELDIRECTORY) + m_name;
+            modelPathName = std::string(PROJECT_ABSDIRECTORY) + m_name;
             m_meshFile = bk3d::load(modelPathName.c_str());
-            if(!(m_meshFile = bk3d::load(modelPathName.c_str())))
-            {
-                modelPathName = std::string(PROJECT_ABSDIRECTORY) + m_name;
-                m_meshFile = bk3d::load(modelPathName.c_str());
-            }
         }
     }
     if(m_meshFile)
@@ -987,8 +955,9 @@ void Bk3dModel::displayObject(const mat4f& cameraView, const mat4f projection, G
             //
             // an emulation of what got captured
             //
-            emucmdlist::nvtokenRenderStatesSW(&m_commandModel.dataPtrs[0], &m_commandModel.sizes[0], 
-                &m_commandModel.stateGroups[0], &m_commandModel.fbos[0], int(m_commandModel.numItems) );
+            emucmdlist::nvtokenRenderStatesSW(&m_tokenBufferModel.data[0], m_tokenBufferModel.data.size(), 
+                &m_tokenBufferModel.offsets[0], &m_tokenBufferModel.sizes[0], 
+                &m_tokenBufferModel.stateGroups[0], &m_tokenBufferModel.fbos[0], int(m_tokenBufferModel.offsets.size()) );
         } else {
             if(g_bUseCallCommandListNV)
                 //
@@ -1000,11 +969,11 @@ void Bk3dModel::displayObject(const mat4f& cameraView, const mat4f projection, G
                 //
                 // real Command-list's Token buffer with states execution
                 //
-                int nitems = int(m_commandModel.numItems);
+                int nitems = int(m_tokenBufferModel.offsets.size() );
                 if((maxItems > 0)&&(nitems > maxItems))
                     nitems = maxItems;
                 if(nitems)
-                    glDrawCommandsStatesAddressNV(&m_commandModel.dataGPUPtrs[0], &m_commandModel.sizes[0], &m_commandModel.stateGroups[0], &m_commandModel.fbos[0], nitems); 
+                    glDrawCommandsStatesNV(m_tokenBufferModel.bufferID, &m_tokenBufferModel.offsets[0], &m_tokenBufferModel.sizes[0], &m_tokenBufferModel.stateGroups[0], &m_tokenBufferModel.fbos[0], nitems); 
             }
             return;
         }

@@ -123,40 +123,13 @@ enum ShaderStages {
 struct TokenBuffer
 {
     GLuint                  bufferID;   // buffer containing all
-    GLuint64EXT             bufferAddr; // buffer GPU-pointer
     std::string             data;       // bytes of data containing the structures to send to the driver
-};
-//
-// Grouping together what is needed to issue a single command made of many states, fbos and Token Buffer pointers
-//
-struct CommandStatesBatch
-{
-    void clear()
-    {
-        for(int i=0; i<stateGroups.size(); i++)
-            glDeleteStatesNV(1, &stateGroups[i]);
-        sizes.clear();
-        stateGroups.clear();
-        fbos.clear();
-        numItems = 0;
-    }
-    void pushBatch(GLuint stateGroup_, GLuint fbo_, GLuint64EXT dataGPUPtr_, const GLvoid* dataPtr_, GLsizei size_)
-    {
-        dataGPUPtrs.push_back(dataGPUPtr_);
-        dataPtrs.push_back(dataPtr_);
-        sizes.push_back(size_);
-        stateGroups.push_back(stateGroup_);
-        fbos.push_back(fbo_);
-        numItems = fbos.size();
-    }
-    std::vector<const GLuint64EXT> dataGPUPtrs;   // pointer in data where to locate each separate groups (for glListDrawCommandsStatesClientNV)
-    std::vector<const GLvoid*>     dataPtrs;   // pointer in data where to locate each separate groups (for glListDrawCommandsStatesClientNV)
+    std::vector<const GLvoid*> dataPtrs;   // pointer in data where to locate each separate groups (for glListDrawCommandsStatesClientNV)
+    std::vector<GLintptr>   offsets;    // offsets in data where to locate each separate groups (for glDrawCommandsStatesNV)
     std::vector<GLsizei>    sizes;      // sizes of each groups
     std::vector<GLuint>     stateGroups;// state-group IDs used for each groups
     std::vector<GLuint>     fbos;       // FBOs being used for each groups
-    size_t                  numItems;   // == fbos.size() or sizes.size()...
 };
-extern TokenBuffer g_tokenBufferViewport;
 
 //
 // Externs
@@ -217,8 +190,7 @@ private:
     MaterialBuffer*     m_material;
     int                 m_materialNItems;
 
-    TokenBuffer         m_tokenBufferModel; // contains the commands to send to the GPU for setup and draw
-    CommandStatesBatch  m_commandModel;     // used to gather the GPU pointers of a single batch and where states/fbos do change
+    TokenBuffer         m_tokenBufferModel; // used for the 3D model loaded from bk3d format
     GLuint              m_commandList;      // the list containing the command buffer(s)
 
     bk3d::FileHeader*   m_meshFile;
@@ -252,7 +224,7 @@ public:
     GLuint findStateOrCreate(bk3d::Mesh *pMesh, bk3d::PrimGroup* pPG);
     bool comparePG(const bk3d::PrimGroup* pPrevPG, const bk3d::PrimGroup* pPG);
     bool compareAttribs(bk3d::Mesh* pPrevMesh, bk3d::Mesh* pMesh);
-    int recordMeshes(GLenum topology, std::vector<int> &offsets, GLsizei &tokenTableOffset, int &totalDCs, GLuint m_fboMSAA8x);
+    int recordMeshes(GLenum topology, GLsizei &tokenTableOffset, int &totalDCs, GLuint m_fboMSAA8x);
     void init_command_list();
     void update_fbo_target(GLuint fbo);
     bool recordTokenBufferObject(GLuint m_fboMSAA8x);

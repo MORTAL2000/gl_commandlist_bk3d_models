@@ -39,14 +39,13 @@
 //
 // Copyright (c) NVIDIA Corporation. All rights reserved.
 //--------------------------------------------------------------------------------------
-#include "GLSLShader.h"
 
 #ifndef GL_FRAMEBUFFER_EXT
 #	define GL_FRAMEBUFFER_EXT				0x8D40
 typedef unsigned int GLenum;
 #endif
 
-class NVFBOBox
+class InvFBOBox
 {
 public:
 	enum DownSamplingTechnique
@@ -56,67 +55,31 @@ public:
 		DS3 = 2,
 		NONE = 3
 	};
+	virtual bool Initialize(int w, int h, float ssfact, int depthSamples, int coverageSamples=0, int tilesW=1, int tilesH=1, bool bOneFBOPerTile=false) = 0;
+    virtual bool resize(int w, int h, float ssfact= -1.0, int depthSamples=-1, int coverageSamples=-1) = 0;
+    virtual void MakeResourcesResident() = 0;
+	virtual void Finish() = 0;
 
-    NVFBOBox(); 
-	~NVFBOBox();
+	virtual int getTilesW() = 0;
+	virtual int getTilesH() = 0;
 
-	virtual bool Initialize(int w, int h, float ssfact, int depthSamples, int coverageSamples=-1, int tilesW=1, int tilesH=1, bool bOneFBOPerTile=true);
-    virtual bool resize(int w, int h, float ssfact=-1, int depthSamples_=-1, int coverageSamples_=-1);
-    virtual void MakeResourcesResident();
-	virtual void Finish();
+	virtual int getWidth() = 0;  // width and height of a tile
+	virtual int getHeight() = 0;
+	virtual int getBufferWidth() = 0;
+	virtual int getBufferHeight() = 0;
+	virtual float getSSFactor() = 0; // supersampling scale ssfact
+	virtual void ActivateBuffer(int tilex=0, int tiley=0, GLenum target = GL_FRAMEBUFFER_EXT) = 0;
+	virtual void Activate(int tilex=0, int tiley=0, float m_frustum[][4] = NULL) = 0;
+	virtual void Deactivate() = 0;
+	virtual bool ResolveAA(DownSamplingTechnique technique=DS1, int tilex=0, int tiley=0) = 0;
+	virtual void Draw(DownSamplingTechnique technique, int tilex, int tiley, int windowW, int windowH, float *offset) = 0;
 
-	virtual int getTilesW();
-	virtual int getTilesH();
+	virtual bool PngWriteFile( const char *file) = 0;
+	virtual void PngWriteData(DownSamplingTechnique technique=DS1, int tilex=0, int tiley=0) = 0;
 
-	virtual int getWidth() { return width; }
-	virtual int getHeight() { return height; }
-	virtual int getBufferWidth() { return bufw; }
-	virtual int getBufferHeight() { return bufh; }
-	virtual float getSSFactor() { return scaleFactor; }
-
-	virtual void ActivateBuffer(int tilex, int tiley, GLenum target = GL_FRAMEBUFFER);
-	virtual void Activate(int tilex=0, int tiley=0, float m_frustum[][4]=NULL);
-	virtual bool ResolveAA(DownSamplingTechnique technique, int tilex, int tiley);
-	virtual void Deactivate();
-	virtual void Draw(DownSamplingTechnique technique, int tilex, int tiley, int windowW, int windowH, float *offset);
-
-	virtual bool PngWriteFile( const char *file);
-	virtual void PngWriteData(DownSamplingTechnique technique, int tilex, int tiley);
-
-    virtual unsigned int GetFBO(int i=0);
-
-protected:
-
-  bool		  bValid;
-  bool		  bCSAA;
-
-  int		   vpx, vpy, vpw, vph;
-  int		   width, height;
-  int		   bufw, bufh;
-  int		   curtilex, curtiley;
-  float			scaleFactor;
-  int			depthSamples, coverageSamples;
-
-  int		   tilesw, tilesh;
-  bool			bOneFBOPerTile;
-
-  GLSLShader downsampling[3];
-
-  // Let's assume we only want to keep separate data for colors. Depth can be shared
-  GLuint		depth_texture;
-  GLuint		depth_texture_ms;
-  struct TileData
-  {
-	  GLuint		fb;
-	  GLuint		fbms;
-	  GLuint		color_texture_ms;
-	  GLuint		color_texture;
-  };
-  std::vector<TileData> tileData;
-
-	GLint  pngDataSz;	  // size of allocated memory
-	GLubyte *pngData;	  // temporary data for the full image (many tiles)
-	GLubyte *pngDataTile; // temporary data from a tile
-
-  bool		  initRT();
+    virtual unsigned int GetFBO(int i=0) = 0;
 };
+class BaseOwner;
+extern InvFBOBox *createNVFBOBox();
+extern void destroyNVFBOBox(InvFBOBox **nvFBOBox);
+
