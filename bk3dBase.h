@@ -729,14 +729,20 @@ INLINE static FileHeader * load(const char * fname, void ** pBufferMemory=NULL, 
 	unsigned long realsize = 0;
 #ifdef NOGZLIB
     fseek(fd, 0, SEEK_END);
-	realsize = ftell(file);
+	realsize = ftell(fd);
     fseek(fd, 0, SEEK_SET);
 #else
 	FILE *file = fopen(fname,"rb");
+    // http://www.onicos.com/staff/iz/formats/gzip.html header must have 0x1f 0x8b
+    unsigned short header;
+    fread(&header, 2, 1, file);
     fseek(file, 0, SEEK_END);
 	realsize = ftell(file);
-    fseek(file, realsize-4, SEEK_SET);
-	fread(&realsize, 4, 1, file);
+    if(header == 0x8b1f) // fetch the real size at the end
+    {
+        fseek(file, realsize-4, SEEK_SET);
+	    fread(&realsize, 4, 1, file);
+    }
 	fclose(file);
 #endif
     // load the Node, first
