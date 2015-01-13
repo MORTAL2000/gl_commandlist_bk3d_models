@@ -150,10 +150,10 @@ namespace emucmdlist
     else    modeSpecial = mode;
 
     while (current < streamEnd){
-      const CommandHeaderNV*    header  = (const CommandHeaderNV*)current;
-      const void*               data    = (const void*)(header+1);
+      const GLuint* header  = (const GLuint*)current;
+      const void*   data    = (const void*)(header+1);
 
-      Header hd = hwHeaders[header->encoded];
+      Header hd = hwHeaders[*header];
 
       switch(hd.cmd)
       {
@@ -212,19 +212,19 @@ namespace emucmdlist
         {
           const ElementAddressCommandNV* cmd = (const ElementAddressCommandNV*)data;
           type = cmd->typeSizeInByte == 4 ? GL_UNSIGNED_INT : GL_UNSIGNED_SHORT;
-          glBufferAddressRangeNV(GL_ELEMENT_ARRAY_ADDRESS_NV, 0, cmd->address, 0x7FFFFFFF);
+          glBufferAddressRangeNV(GL_ELEMENT_ARRAY_ADDRESS_NV, 0, *((GLuint64*)&cmd->addressLo), 0x7FFFFFFF);
         }
         break;
       case GL_ATTRIBUTE_ADDRESS_COMMAND_NV:
         {
           const AttributeAddressCommandNV* cmd = (const AttributeAddressCommandNV*)data;
-          glBufferAddressRangeNV(GL_VERTEX_ATTRIB_ARRAY_ADDRESS_NV, cmd->index, cmd->address, 0x7FFFFFFF);
+          glBufferAddressRangeNV(GL_VERTEX_ATTRIB_ARRAY_ADDRESS_NV, cmd->index, *((GLuint64EXT*)&cmd->addressLo), 0x7FFFFFFF);
         }
         break;
       case GL_UNIFORM_ADDRESS_COMMAND_NV:
         {
           const UniformAddressCommandNV* cmd = (const UniformAddressCommandNV*)data;
-          glBufferAddressRangeNV(GL_UNIFORM_BUFFER_ADDRESS_NV, cmd->index, cmd->address, 0x10000);
+          glBufferAddressRangeNV(GL_UNIFORM_BUFFER_ADDRESS_NV, cmd->index, *((GLuint64EXT*)&cmd->addressLo), 0x10000);
         }
         break;
       case GL_BLEND_COLOR_COMMAND_NV:

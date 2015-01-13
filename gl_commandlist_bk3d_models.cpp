@@ -149,6 +149,11 @@ static const char* s_sampleHelpCmdLine =
 ;
 
 //-----------------------------------------------------------------------------
+// Prototype(s)
+//-----------------------------------------------------------------------------
+void updateViewportTokenBufferAndLineWidth(GLint x, GLint y, GLsizei width, GLsizei height, float lineW);
+
+//-----------------------------------------------------------------------------
 // Global variables
 //-----------------------------------------------------------------------------
 #ifdef USESVCUI
@@ -235,26 +240,25 @@ static GLushort s_stages[STAGES];
 
 struct Token_Nop {
     static const GLenum   ID = GL_NOP_COMMAND_NV;
-    CommandHeaderNV      header;
+    NOPCommandNV      cmd;
     Token_Nop() {
-      header.encoded  = s_header[ID];
+      cmd.header  = s_header[ID];
     }
 };
 
 struct Token_TerminateSequence {
     static const GLenum   ID = GL_TERMINATE_SEQUENCE_COMMAND_NV;
 
-    CommandHeaderNV      header;
+    TerminateSequenceCommandNV cmd;
     
     Token_TerminateSequence() {
-      header.encoded  = s_header[ID];
+      cmd.header  = s_header[ID];
     }
 };
 
 struct Token_DrawElemsInstanced {
     static const GLenum   ID = GL_DRAW_ELEMENTS_INSTANCED_COMMAND_NV;
 
-    CommandHeaderNV                        header;
     DrawElementsInstancedCommandNV   cmd;
 
     Token_DrawElemsInstanced() {
@@ -264,14 +268,13 @@ struct Token_DrawElemsInstanced {
       cmd.count = 0;
       cmd.instanceCount = 1;
 
-      header.encoded  = s_header[ID];
+      cmd.header  = s_header[ID];
     }
 };
 
 struct Token_DrawArraysInstanced {
     static const GLenum   ID = GL_DRAW_ARRAYS_INSTANCED_COMMAND_NV;
 
-    CommandHeaderNV                      header;
     DrawArraysInstancedCommandNV   cmd;
 
     Token_DrawArraysInstanced() {
@@ -280,14 +283,13 @@ struct Token_DrawArraysInstanced {
       cmd.count = 0;
       cmd.instanceCount = 1;
 
-      header.encoded  = s_header[ID];
+      cmd.header  = s_header[ID];
     }
 };
 
 struct Token_DrawElements {
     static const GLenum   ID = GL_DRAW_ELEMENTS_COMMAND_NV;
 
-    CommandHeaderNV                    header;
     DrawElementsCommandNV   cmd;
 
     Token_DrawElements() {
@@ -295,28 +297,26 @@ struct Token_DrawElements {
       cmd.firstIndex = 0;
       cmd.count = 0;
 
-      header.encoded  = s_header[ID];
+      cmd.header  = s_header[ID];
     }
 };
 
 struct Token_DrawArrays {
     static const GLenum   ID = GL_DRAW_ARRAYS_COMMAND_NV;
 
-    CommandHeaderNV                  header;
     DrawArraysCommandNV   cmd;
 
     Token_DrawArrays() {
       cmd.first = 0;
       cmd.count = 0;
 
-      header.encoded  = s_header[ID];
+      cmd.header  = s_header[ID];
     }
 };
 
 struct Token_DrawElementsStrip {
     static const GLenum   ID = GL_DRAW_ELEMENTS_STRIP_COMMAND_NV;
 
-    CommandHeaderNV                    header;
     DrawElementsCommandNV   cmd;
 
     Token_DrawElementsStrip() {
@@ -324,127 +324,116 @@ struct Token_DrawElementsStrip {
       cmd.firstIndex = 0;
       cmd.count = 0;
 
-      header.encoded  = s_header[ID];
+      cmd.header  = s_header[ID];
     }
 };
 
 struct Token_DrawArraysStrip {
     static const GLenum   ID = GL_DRAW_ARRAYS_STRIP_COMMAND_NV;
 
-    CommandHeaderNV                  header;
     DrawArraysCommandNV   cmd;
 
     Token_DrawArraysStrip() {
       cmd.first = 0;
       cmd.count = 0;
 
-      header.encoded  = s_header[ID];
+      cmd.header  = s_header[ID];
     }
 };
 
 struct Token_AttributeAddress {
     static const GLenum   ID = GL_ATTRIBUTE_ADDRESS_COMMAND_NV;
 
-    CommandHeaderNV                  header;
     AttributeAddressCommandNV cmd;
 
     Token_AttributeAddress() {
-      header.encoded  = s_header[ID];
+      cmd.header  = s_header[ID];
     }
 };
 
 struct Token_ElementAddress {
     static const GLenum   ID = GL_ELEMENT_ADDRESS_COMMAND_NV;
 
-    CommandHeaderNV                header;
     ElementAddressCommandNV cmd;
 
     Token_ElementAddress() {
-      header.encoded  = s_header[ID];
+      cmd.header  = s_header[ID];
     }
 };
 
 struct Token_UniformAddress {
     static const GLenum   ID = GL_UNIFORM_ADDRESS_COMMAND_NV;
 
-    CommandHeaderNV                header;
     UniformAddressCommandNV   cmd;
 
     Token_UniformAddress() {
-      header.encoded  = s_header[ID];
+      cmd.header  = s_header[ID];
     }
 };
 
 struct Token_BlendColor{
     static const GLenum   ID = GL_BLEND_COLOR_COMMAND_NV;
 
-    CommandHeaderNV                header;
     BlendColorCommandNV     cmd;
 
     Token_BlendColor() {
-      header.encoded  = s_header[ID];
+      cmd.header  = s_header[ID];
     }
 };
 
 struct Token_StencilRef{
     static const GLenum   ID = GL_STENCIL_REF_COMMAND_NV;
 
-    CommandHeaderNV            header;
     StencilRefCommandNV cmd;
 
     Token_StencilRef() {
-      header.encoded  = s_header[ID];
+      cmd.header  = s_header[ID];
     }
 } ;
 
 struct Token_LineWidth{
     static const GLenum   ID = GL_LINE_WIDTH_COMMAND_NV;
 
-    CommandHeaderNV            header;
     LineWidthCommandNV  cmd;
 
     Token_LineWidth() {
-      header.encoded  = s_header[ID];
+      cmd.header  = s_header[ID];
     }
 };
 
 struct Token_PolygonOffset{
     static const GLenum   ID = GL_POLYGON_OFFSET_COMMAND_NV;
 
-    CommandHeaderNV                header;
     PolygonOffsetCommandNV  cmd;
 
     Token_PolygonOffset() {
-      header.encoded  = s_header[ID];
+      cmd.header  = s_header[ID];
     }
 };
 
 struct Token_AlphaRef{
     static const GLenum   ID = GL_ALPHA_REF_COMMAND_NV;
 
-    CommandHeaderNV          header;
     AlphaRefCommandNV cmd;
 
     Token_AlphaRef() {
-      header.encoded  = s_header[ID];
+      cmd.header  = s_header[ID];
     }
 };
 
 struct Token_Viewport{
     static const GLenum   ID = GL_VIEWPORT_COMMAND_NV;
-    CommandHeaderNV          header;
     ViewportCommandNV cmd;
     Token_Viewport() {
-      header.encoded  = s_header[ID];
+      cmd.header  = s_header[ID];
     }
 };
 
 struct Token_Scissor {
     static const GLenum   ID = GL_SCISSOR_COMMAND_NV;
-    CommandHeaderNV          header;
     ScissorCommandNV  cmd;
     Token_Scissor() {
-      header.encoded  = s_header[ID];
+      cmd.header  = s_header[ID];
     }
 };
 
@@ -516,7 +505,7 @@ std::string buildUniformAddressCommand(int idx, GLuint64 p, GLsizeiptr sizeBytes
     Token_UniformAddress attr;
     attr.cmd.stage = s_stages[stage];
     attr.cmd.index = idx;
-    attr.cmd.address = p;
+    ((GLuint64EXT*)&attr.cmd.addressLo)[0] = p;
     cmd = std::string((const char*)&attr,sizeof(Token_UniformAddress));
 
     return cmd;
@@ -529,7 +518,7 @@ std::string buildAttributeAddressCommand(int idx, GLuint64 p, GLsizeiptr sizeByt
     std::string cmd;
     Token_AttributeAddress attr;
     attr.cmd.index = idx;
-    attr.cmd.address = p;
+    ((GLuint64EXT*)&attr.cmd.addressLo)[0] = p;
     cmd = std::string((const char*)&attr,sizeof(Token_AttributeAddress));
 
     return cmd;
@@ -541,7 +530,7 @@ std::string buildElementAddressCommand(GLuint64 ptr, GLenum indexFormatGL)
 {
     std::string cmd;
     Token_ElementAddress attr;
-    attr.cmd.address = ptr;
+    ((GLuint64EXT*)&attr.cmd.addressLo)[0] = ptr;
     switch(indexFormatGL)
     {
     case GL_UNSIGNED_INT:
@@ -768,12 +757,11 @@ bool recordTokenBufferGrid(GLuint fbo)
     std::string data = buildUniformAddressCommand(UBO_MATRIX, g_uboMatrix.Addr, g_uboMatrix.Sz, STAGE_VERTEX);
     data            += buildUniformAddressCommand(UBO_LIGHT, g_uboLight.Addr, g_uboLight.Sz, STAGE_FRAGMENT);
     data            += buildAttributeAddressCommand(0, s_vboGridAddr, s_vboGridSz);
-    data            += buildLineWidthCommand(g_Supersampling);
     data            += buildDrawArraysCommand(GL_LINES, GRIDDEF*4);
     //
     // build another drawcall for the target cross
     //
-    data            += buildLineWidthCommand(g_Supersampling * 3.0);
+    data            += buildLineWidthCommand(4.0);
     data            += buildAttributeAddressCommand(0, s_vboCrossAddr, s_vboCrossSz);
     data            += buildDrawArraysCommand(GL_LINES, 6);
     s_tokenBufferGrid.data = data;                      // token buffer containing commands
@@ -1004,10 +992,16 @@ bool MyWindow::init()
                 else if(!strcmp(pWin->GetID(), "SS"))
                 {
                     g_Supersampling = 0.1f * (float)pWin->GetItemData(selectedidx);
-                    glLineWidth(g_Supersampling);
                     MyWindow* p = reinterpret_cast<MyWindow*>(pWin->GetUserData());
                     p->m_fboBox.resize(p->m_winSz[0], p->m_winSz[1], g_Supersampling, s_MSAA);
                     p->m_fboBox.MakeResourcesResident();
+                    //
+                    // update the token buffer in which the viewport setup happens for token rendering
+                    //
+                    updateViewportTokenBufferAndLineWidth(0,0,p->m_fboBox.getBufferWidth(),p->m_fboBox.getBufferHeight(), g_Supersampling);
+                    //
+                    // remember that commands must know which FBO is targeted
+                    //
                     FOREACHMODEL(update_fbo_target(p->m_fboBox.GetFBO()));
                     // the comman-list needs to be rebuilt when FBO's resources changed
                     #if 1
@@ -1135,7 +1129,7 @@ bool MyWindow::init()
 // this approach is good avoid messing with OpenGL state machine and later could
 // prevent extra driver validation
 //------------------------------------------------------------------------------
-void updateViewportTokenBuffer(GLint x, GLint y, GLsizei width, GLsizei height)
+void updateViewportTokenBufferAndLineWidth(GLint x, GLint y, GLsizei width, GLsizei height, float lineW)
 {
     // could have way more commands here...
     // ...
@@ -1143,6 +1137,7 @@ void updateViewportTokenBuffer(GLint x, GLint y, GLsizei width, GLsizei height)
     {
         // first time: create
         g_tokenBufferViewport.data  = buildViewportCommand(x,y,width, height);
+        g_tokenBufferViewport.data  += buildLineWidthCommand(lineW);
         glGenBuffers(1, &g_tokenBufferViewport.bufferID);
         glNamedBufferDataEXT(
             g_tokenBufferViewport.bufferID, 
@@ -1165,6 +1160,8 @@ void updateViewportTokenBuffer(GLint x, GLint y, GLsizei width, GLsizei height)
         dc->cmd.y = y;
         dc->cmd.width = width;
         dc->cmd.height = height;
+        Token_LineWidth *lw = (Token_LineWidth *)(dc+1);
+        lw->cmd.lineWidth = lineW;
         //
         // just update. Offset is always 0 in our simple case
         glNamedBufferSubDataEXT(
@@ -1210,7 +1207,6 @@ bool initGraphics()
     glClearColor(0.0f, 0.1f, 0.15f, 1.0f);
     glGenVertexArrays(1, &s_vao);
     glBindVertexArray(s_vao);
-    glLineWidth(g_Supersampling);
     //
     // 3D Model shared stuff (shaders)
     //
@@ -1253,9 +1249,7 @@ void MyWindow::reshape(int w, int h)
     //
     // update the token buffer in which the viewport setup happens for token rendering
     //
-    updateViewportTokenBuffer(0,0,w,h);
-
-    glLineWidth(g_Supersampling);
+    updateViewportTokenBufferAndLineWidth(0,0,m_fboBox.getBufferWidth(),m_fboBox.getBufferHeight(), g_Supersampling);
     //
     // the FBOs were destroyed and rebuilt
     // associated 64 bits pointers (as resident resources) might have changed
