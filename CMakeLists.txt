@@ -10,7 +10,10 @@ SET(MODELS_DOWNLOAD_DISABLED OFF CACHE BOOL "DO NOT try to download 3D models ne
 # offer the choice of having shared_sources as a sub-folder... good for packaging a sample
 #
 if(NOT BASE_DIRECTORY) # if not defined, it means this cmake file was called as the first entry point and not included
-  if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/shared_sources)
+  # check if the external repository is outside or inside the project (as a sub-module)
+  # testing the file CMakeLists_include.txt because when sub-modules are not cloned, the folders are still there...
+  # we also assume here that if shared_sources is there, shared_external is, too...
+  if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/shared_sources/CMakeLists_include.txt)
     Message(STATUS "found sub-folder shared_sources")
     SET(BASE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
     INCLUDE(${CMAKE_CURRENT_SOURCE_DIR}/shared_sources/CMakeLists_include.txt)
