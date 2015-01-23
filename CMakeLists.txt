@@ -15,10 +15,17 @@ if(NOT BASE_DIRECTORY) # if not defined, it means this cmake file was called as 
     SET(BASE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
     INCLUDE(${CMAKE_CURRENT_SOURCE_DIR}/shared_sources/CMakeLists_include.txt)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/shared_sources ${CMAKE_BINARY_DIR}/shared_sources)
+    # if the resource of downloaded meshes is local, keep this one. Otherwise, use the common one
+    if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/downloaded_resources)
+      SET(DOWNLOAD_TARGET_DIR "${BASE_DIRECTORY}/downloaded_resources")
+    else()
+      SET(DOWNLOAD_TARGET_DIR "${BASE_DIRECTORY}/../downloaded_resources")
+    endif()
   else()
     SET(BASE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/..)
     INCLUDE(${CMAKE_CURRENT_SOURCE_DIR}/../shared_sources/CMakeLists_include.txt)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../shared_sources ${CMAKE_BINARY_DIR}/shared_sources)
+    SET(DOWNLOAD_TARGET_DIR "${BASE_DIRECTORY}/downloaded_resources")
   endif()
 endif()
 _add_project_definitions(${PROJNAME})
@@ -59,7 +66,7 @@ if(NOT ${MODELS_DOWNLOAD_DISABLED})
   _download_files(
     "${FILELIST}"
     "http://developer.download.nvidia.com/ProGraphics/nvpro-samples"
-    "${BASE_DIRECTORY}/downloaded_resources"
+    ${DOWNLOAD_TARGET_DIR}
     ${MODELS_DOWNLOAD_FORCE}
   )
 endif()
