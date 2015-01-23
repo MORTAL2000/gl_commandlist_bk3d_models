@@ -43,99 +43,117 @@
 #pragma pack(push,1)
 
 typedef struct {
-    GLuint      encoded;
-} CommandHeaderNV;
-        
-typedef struct {
-    // no data
-} TerminateSequenceCommandNV;
+    GLuint  header;
+  } TerminateSequenceCommandNV;
 
-typedef struct {
-    // no data
-} NOPCommandNV;
-        
-typedef  struct {
+  typedef struct {
+    GLuint  header;
+  } NOPCommandNV;
+
+  typedef  struct {
+    GLuint  header;
     GLuint  count;
     GLuint  firstIndex;
     GLuint  baseVertex;
-} DrawElementsCommandNV;
+  } DrawElementsCommandNV;
 
-typedef  struct {
+  typedef  struct {
+    GLuint  header;
     GLuint  count;
     GLuint  first;
-} DrawArraysCommandNV;
-        
-typedef  struct {
-    GLuint  mode;
+  } DrawArraysCommandNV;
+
+  typedef  struct {
+    GLuint  header;
+    GLenum  mode;
     GLuint  count;
     GLuint  instanceCount;
     GLuint  firstIndex;
     GLuint  baseVertex;
     GLuint  baseInstance;
-} DrawElementsInstancedCommandNV;
+  } DrawElementsInstancedCommandNV;
 
-typedef  struct {
-    GLuint  mode;
+  typedef  struct {
+    GLuint  header;
+    GLenum  mode;
     GLuint  count;
     GLuint  instanceCount;
     GLuint  first;
     GLuint  baseInstance;
-} DrawArraysInstancedCommandNV;
+  } DrawArraysInstancedCommandNV;
 
-typedef struct {
-    GLuint64 address;
-    GLuint typeSizeInByte;
-} ElementAddressCommandNV;
+  typedef struct {
+    GLuint  header;
+    GLuint  addressLo;
+    GLuint  addressHi;
+    GLuint  typeSizeInByte;
+  } ElementAddressCommandNV;
 
-typedef struct {
-    GLuint   index;
-    GLuint64 address;
-} AttributeAddressCommandNV;
+  typedef struct {
+    GLuint  header;
+    GLuint  index;
+    GLuint  addressLo;
+    GLuint  addressHi;
+  } AttributeAddressCommandNV;
 
-typedef struct {
-    GLushort   index;
-    GLushort   stage;
-    GLuint64   address;
-} UniformAddressCommandNV;
+  typedef struct {
+    GLuint    header;
+    GLushort  index;
+    GLushort  stage;
+    GLuint    addressLo;
+    GLuint    addressHi;
+  } UniformAddressCommandNV;
 
-typedef struct {
-    GLfloat red;
-    GLfloat green;
-    GLfloat blue;
-    GLfloat alpha;
-} BlendColorCommandNV;
+  typedef struct {
+    GLuint  header;
+    float   red;
+    float   green;
+    float   blue;
+    float   alpha;
+  } BlendColorCommandNV;
 
-typedef struct {
-    GLuint frontStencilRef;
-    GLuint backStencilRef;
-} StencilRefCommandNV;
-        
-typedef struct {
-    GLfloat lineWidth;
-} LineWidthCommandNV;
+  typedef struct {
+    GLuint  header;
+    GLuint  frontStencilRef;
+    GLuint  backStencilRef;
+  } StencilRefCommandNV;
 
-typedef struct {
-    GLfloat scale;
-    GLfloat bias;
-} PolygonOffsetCommandNV;
+  typedef struct {
+    GLuint  header;
+    float   lineWidth;
+  } LineWidthCommandNV;
 
-typedef struct {
-    GLfloat alphaRef;
-} AlphaRefCommandNV;
+  typedef struct {
+    GLuint  header;
+    float   scale;
+    float   bias;
+  } PolygonOffsetCommandNV;
 
-typedef struct {
-    GLfloat x;
-    GLfloat y;
-    GLfloat width;
-    GLfloat height;
-} ViewportCommandNV;
+  typedef struct {
+    GLuint  header;
+    float   alphaRef;
+  } AlphaRefCommandNV;
 
-typedef struct {
-    GLuint x;
-    GLuint y;
-    GLuint width;
-    GLuint height;
-} ScissorCommandNV;
+  typedef struct {
+    GLuint  header;
+    GLuint  x;
+    GLuint  y;
+    GLuint  width;
+    GLuint  height;
+  } ViewportCommandNV;  // only ViewportIndex 0
+
+  typedef struct {
+    GLuint  header;
+    GLuint  x;
+    GLuint  y;
+    GLuint  width;
+    GLuint  height;
+  } ScissorCommandNV;   // only ViewportIndex 0
+
+  typedef struct {
+    GLuint  header;
+    GLuint  frontFace;  // 0 for CW, 1 for CCW
+  } FrontFaceCommandNV;
 
 #pragma pack(pop)
 

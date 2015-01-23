@@ -56,8 +56,7 @@ namespace emucmdlist
       );
   extern void StateApply(GLuint curID, GLuint prevID=~0);
   //extern GLenum nvtokenRenderSW( const void* stream, size_t streamSize, GLenum mode, GLenum type);
-  extern void nvtokenRenderStatesSW(const void* __restrict stream, size_t streamSize, 
-    const GLintptr* __restrict offsets, const GLsizei* __restrict sizes, 
+  extern void nvtokenRenderStatesSW(const GLvoid** __restrict ptrs, const GLsizei* __restrict sizes, 
     const GLuint* __restrict states, const GLuint* __restrict fbos, GLuint count);
 #else
   MapStates mapStates;
@@ -151,10 +150,10 @@ namespace emucmdlist
     else    modeSpecial = mode;
 
     while (current < streamEnd){
-      const CommandHeaderNV*    header  = (const CommandHeaderNV*)current;
-      const void*               data    = (const void*)(header+1);
+      const GLuint* header  = (const GLuint*)current;
+      const void*   data    = (const void*)(header+1);
 
-      Header hd = hwHeaders[header->encoded];
+      Header hd = hwHeaders[*header];
 
       switch(hd.cmd)
       {
@@ -213,19 +212,19 @@ namespace emucmdlist
         {
           const ElementAddressCommandNV* cmd = (const ElementAddressCommandNV*)data;
           type = cmd->typeSizeInByte == 4 ? GL_UNSIGNED_INT : GL_UNSIGNED_SHORT;
-          glBufferAddressRangeNV(GL_ELEMENT_ARRAY_ADDRESS_NV, 0, cmd->address, 0x7FFFFFFF);
+          glBufferAddressRangeNV(GL_ELEMENT_ARRAY_ADDRESS_NV, 0, *((GLuint64*)&cmd->addressLo), 0x7FFFFFFF);
         }
         break;
       case GL_ATTRIBUTE_ADDRESS_COMMAND_NV:
         {
           const AttributeAddressCommandNV* cmd = (const AttributeAddressCommandNV*)data;
-          glBufferAddressRangeNV(GL_VERTEX_ATTRIB_ARRAY_ADDRESS_NV, cmd->index, cmd->address, 0x7FFFFFFF);
+          glBufferAddressRangeNV(GL_VERTEX_ATTRIB_ARRAY_ADDRESS_NV, cmd->index, *((GLuint64EXT*)&cmd->addressLo), 0x7FFFFFFF);
         }
         break;
       case GL_UNIFORM_ADDRESS_COMMAND_NV:
         {
           const UniformAddressCommandNV* cmd = (const UniformAddressCommandNV*)data;
-          glBufferAddressRangeNV(GL_UNIFORM_BUFFER_ADDRESS_NV, cmd->index, cmd->address, 0x10000);
+          glBufferAddressRangeNV(GL_UNIFORM_BUFFER_ADDRESS_NV, cmd->index, *((GLuint64EXT*)&cmd->addressLo), 0x10000);
         }
         break;
       case GL_BLEND_COLOR_COMMAND_NV:
@@ -280,8 +279,7 @@ namespace emucmdlist
     return type;
   }
 
-  void nvtokenRenderStatesSW(const void* __restrict stream, size_t streamSize, 
-    const GLintptr* __restrict offsets, const GLsizei* __restrict sizes, 
+  void nvtokenRenderStatesSW(const GLvoid** __restrict ptrs, const GLsizei* __restrict sizes, 
     const GLuint* __restrict states, const GLuint* __restrict fbos, GLuint count)
   {
     glEnableClientState(GL_VERTEX_ATTRIB_ARRAY_UNIFIED_NV);
@@ -289,7 +287,6 @@ namespace emucmdlist
     glEnableClientState(GL_UNIFORM_BUFFER_UNIFIED_NV);
     int lastFbo = ~0;
     int lastID = ~0;
-    const char* __restrict tokens = (const char*)stream;
 
     GLenum type = GL_UNSIGNED_SHORT;
     for (GLuint i = 0; i < count; i++)
@@ -321,12 +318,7 @@ namespace emucmdlist
       }
       lastID = curID;
 
-      size_t offset = offsets[i];
-      size_t size   = sizes[i];
-
-      assert(size + offset <= streamSize);
-
-      type = nvtokenRenderSW(&tokens[offset], size, state.mode, type);
+      type = nvtokenRenderSW((const char*)ptrs[i], sizes[i], state.mode, type);
     }
     glDisableClientState(GL_VERTEX_ATTRIB_ARRAY_UNIFIED_NV);
     glDisableClientState(GL_ELEMENT_ARRAY_UNIFIED_NV);
