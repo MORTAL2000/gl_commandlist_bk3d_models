@@ -27,7 +27,9 @@ if(NOT BASE_DIRECTORY) # if not defined, it means this cmake file was called as 
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../shared_sources ${CMAKE_BINARY_DIR}/shared_sources)
     SET(DOWNLOAD_TARGET_DIR "${BASE_DIRECTORY}/downloaded_resources")
   endif()
-endif()
+else(NOT BASE_DIRECTORY)
+    SET(DOWNLOAD_TARGET_DIR "${BASE_DIRECTORY}/downloaded_resources")
+endif(NOT BASE_DIRECTORY)
 _add_project_definitions(${PROJNAME})
 
 #####################################################################################
