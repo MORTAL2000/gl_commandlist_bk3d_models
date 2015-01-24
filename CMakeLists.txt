@@ -5,7 +5,7 @@ Message(STATUS "-------------------------------")
 Message(STATUS "Processing Project ${PROJNAME}:")
 
 SET(MODELS_DOWNLOAD_FORCE OFF CACHE BOOL "Forces the download operation of 3D models needed for this demo" )
-SET(MODELS_DOWNLOAD_DISABLED OFF CACHE BOOL "DO NOT try to download 3D models needed for this demo... to avoid getting stuck if slow BW" )
+SET(MODELS_DOWNLOAD_DISABLED ON CACHE BOOL "UNCHECK IT to download heavy 3D models needed for this demo" )
 #####################################################################################
 # offer the choice of having shared_sources as a sub-folder... good for packaging a sample
 #

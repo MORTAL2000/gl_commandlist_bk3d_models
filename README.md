@@ -1,5 +1,7 @@
 # NVIDIA commandlist extension over bk3d models
 
+*Note*: CMake MODELS_DOWNLOAD_DISABLED is ON by default so you don't get stuck in cmake downloading the heavy 3D models that this demo can use. Unchecking it will download 8 models in a local folder called *downloaded_resources*. I could take time...
+
 This sample shows how to use NVIDIA command-list extension over basic scenes
 
 The sample uses a pre-baked binary format (bk3d) for various models coming from CAD applications.
