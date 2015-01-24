@@ -1,6 +1,6 @@
-# NVIDIA commandlist extension over bk3d models
-
 *Note*: CMake MODELS_DOWNLOAD_DISABLED is ON by default so you don't get stuck in cmake downloading the heavy 3D models that this demo can use. Unchecking it will download 8 models in a local folder called *downloaded_resources*. I could take time...
+
+# NVIDIA commandlist extension over bk3d models
 
 This sample shows how to use NVIDIA command-list extension over basic scenes
 
@@ -34,6 +34,9 @@ This samples can either run in MSAA mode but also in 'supersampled' mode (see NV
 load a scene and start animation:
 
 gl_commandlist_bk3d_models.exe -i scene_car.txt -a 1
+
+(*Note*: CMake MODELS_DOWNLOAD_DISABLED should be OFF and you should have downloaded the other models thanks to cmake if you want scene_car.txt and scene_ds_models.txt to work...)
+
 
 load a bk3d file:
 
