@@ -28,7 +28,10 @@
 
 #include "main.h"
 
-#include <windows.h>
+#if defined(_MSC_VER)
+#  include <windows.h>
+#  include <direct.h>
+#endif
 #include <assert.h>
 #include <float.h>
 #include <math.h>
@@ -36,7 +39,6 @@
 #include <string.h>
 #include <vector>
 
-#include <direct.h>
 
 
 
@@ -45,7 +47,7 @@
 #endif
 
 #include "NVFBOBox.h"
-#include "gl\glew.h"
+#include "GL/glew.h"
 
 //#include "Logging.h"
 //#include "glError.h"

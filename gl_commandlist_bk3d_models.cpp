@@ -182,7 +182,7 @@ std::vector<Bk3dModel*> s_bk3dModels;
 
 #define FOREACHMODEL(cmd) {\
     for(int m=0;m<s_bk3dModels.size(); m++) {\
-    s_bk3dModels[m]->##cmd ;\
+    s_bk3dModels[m]->cmd ;\
     }\
 }
 static int      s_curObject = 0;
@@ -1108,7 +1108,7 @@ bool MyWindow::init()
 #endif
 
 #endif
-	addToggleKeyToMFCUI(' ', &m_realtime.bNonStopRendering, "space: toggles continuous rendering\n");
+    addToggleKeyToMFCUI(' ', &m_realtime.bNonStopRendering, "space: toggles continuous rendering\n");
     addToggleKeyToMFCUI('c', &g_bUseCommandLists, "'c': use Commandlist\n");
     addToggleKeyToMFCUI('e', &g_bUseEmulation, "'e': use Commandlist EMULATION\n");
     addToggleKeyToMFCUI('l', &g_bUseCallCommandListNV, "'l': use glCallCommandListNV\n");

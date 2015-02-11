@@ -1,4 +1,5 @@
 #include "GLSLShader.h"
+#include <string.h>
 #include <string>
 #include <fstream>
 

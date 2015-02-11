@@ -98,6 +98,8 @@ if(WIN32 AND NOT GLUT_FOUND)
   add_definitions(/wd4305) #remove double to float truncation warning
   add_executable(${PROJNAME} WIN32 ${SOURCE_FILES} ${COMMON_SOURCE_FILES} ${PACKAGE_SOURCE_FILES})
 else()
+  # allow gcc to be tolerant on some issues. TODO:should remove this option
+  add_definitions(-fpermissive)
   add_executable(${PROJNAME} ${SOURCE_FILES} ${COMMON_SOURCE_FILES} ${PACKAGE_SOURCE_FILES})
 endif()
 

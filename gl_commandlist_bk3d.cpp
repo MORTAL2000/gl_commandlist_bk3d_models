@@ -160,7 +160,7 @@ void Bk3dModel::deleteCommandListData()
     releaseState(0); // 0 : release all
     if(m_tokenBufferModel.bufferID)
         glDeleteBuffers(1, &m_tokenBufferModel.bufferID);
-    m_tokenBufferModel.bufferAddr = NULL;
+    m_tokenBufferModel.bufferAddr = 0;
     m_tokenBufferModel.bufferID = 0;
     m_tokenBufferModel.data.clear();
 

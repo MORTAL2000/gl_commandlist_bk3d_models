@@ -28,6 +28,7 @@
 #include "main.h"
 
 #include "nv_math/nv_math.h"
+#include "nv_math/nv_math_glsltypes.h"
 using namespace nv_math;
 
 #include "GLSLShader.h"
@@ -40,8 +41,8 @@ using namespace nv_math;
 
 #include "emulate_commandlist.h"
 
+#include "svcmfcui.h"
 #ifdef USESVCUI
-#   include "SvcMFCUI.h"
 #   define  LOGFLUSH()  { g_pWinHandler->HandleMessageLoop_OnePass(); }
 #else
 #   define  LOGFLUSH()
@@ -70,33 +71,33 @@ using namespace nv_math;
 //
 // Let's assume we would put any matrix that don't get impacted by the local object transformation
 //
-__declspec(align(256)) struct MatrixBufferGlobal
-{
-    mat4f mW;
-    mat4f mVP;
-};
+ALIGNED_(256, struct MatrixBufferGlobal
+{ 
+  mat4f mW; 
+  mat4f mVP;
+} );
 //
 // Let's assume these are the ones that can change for each object
 // will used at an array of MatrixBufferObject
 //
-__declspec(align(256)) struct MatrixBufferObject
+ALIGNED_(256, struct MatrixBufferObject
 {
     mat4f mO;
-};
+} );
 //
 // if we create arrays with a structure, we must be aligned according to
 // GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT (to query)
 //
-__declspec(align(256)) struct MaterialBuffer
+ALIGNED_(256, struct MaterialBuffer
 {
     vec3f diffuse;
     float a;
-};
+} );
 
-__declspec(align(256)) struct LightBuffer
+ALIGNED_(256, struct LightBuffer
 {
     vec3f dir;
-};
+} );
 
 struct BO {
     GLuint      Id;
@@ -140,7 +141,7 @@ struct CommandStatesBatch
         fbos.clear();
         numItems = 0;
     }
-    void pushBatch(GLuint stateGroup_, GLuint fbo_, GLuint64EXT dataGPUPtr_, const GLvoid* dataPtr_, GLsizei size_)
+    void pushBatch(GLuint stateGroup_, GLuint fbo_, const GLuint64EXT dataGPUPtr_, const GLvoid* dataPtr_, GLsizei size_)
     {
         dataGPUPtrs.push_back(dataGPUPtr_);
         dataPtrs.push_back(dataPtr_);
@@ -149,8 +150,8 @@ struct CommandStatesBatch
         fbos.push_back(fbo_);
         numItems = fbos.size();
     }
-    std::vector<const GLuint64EXT> dataGPUPtrs;   // pointer in data where to locate each separate groups (for glListDrawCommandsStatesClientNV)
-    std::vector<const GLvoid*>     dataPtrs;   // pointer in data where to locate each separate groups (for glListDrawCommandsStatesClientNV)
+    std::vector<GLuint64EXT> dataGPUPtrs;   // pointer in data where to locate each separate groups (for glListDrawCommandsStatesClientNV)
+    std::vector<GLvoid*>     dataPtrs;   // pointer in data where to locate each separate groups (for glListDrawCommandsStatesClientNV)
     std::vector<GLsizei>    sizes;      // sizes of each groups
     std::vector<GLuint>     stateGroups;// state-group IDs used for each groups
     std::vector<GLuint>     fbos;       // FBOs being used for each groups
