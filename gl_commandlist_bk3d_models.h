@@ -132,6 +132,7 @@ struct TokenBuffer
 //
 struct CommandStatesBatch
 {
+    CommandStatesBatch() { numItems = 0; }
     void clear()
     {
         for(int i=0; i<stateGroups.size(); i++)

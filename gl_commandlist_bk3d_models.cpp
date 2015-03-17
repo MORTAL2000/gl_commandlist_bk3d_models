@@ -53,6 +53,8 @@ public:
     virtual void keyboardchar(unsigned char key, int mods, int x, int y);
     //virtual void idle();
     virtual void display();
+
+    void readConfigFile(const char* fname);
 };
 
 MyWindow::MyWindow() :
@@ -740,6 +742,9 @@ bool recordTokenBufferGrid(GLuint fbo)
     glEnableClientState(GL_VERTEX_ATTRIB_ARRAY_UNIFIED_NV);
     glEnableClientState(GL_ELEMENT_ARRAY_UNIFIED_NV);
     glEnableClientState(GL_UNIFORM_BUFFER_UNIFIED_NV);
+
+    glBindBufferBase(GL_UNIFORM_BUFFER,UBO_MATRIX, 0);  // put them to zero for debug purpose
+    glBindBufferBase(GL_UNIFORM_BUFFER,UBO_LIGHT, 0);
     //
     // Bind the VBO essentially for the *stride information*
     //
@@ -1419,21 +1424,26 @@ void MyWindow::display()
 //------------------------------------------------------------------------------
 // Main initialization point
 //------------------------------------------------------------------------------
-void readConfigFile(const char* fname)
+void MyWindow::readConfigFile(const char* fname)
 {
     FILE *fp = fopen(fname, "r");
     if(!fp)
     {
         std::string modelPathName;
-        modelPathName = std::string(PROJECT_RELDIRECTORY) + std::string(fname);
+        modelPathName = std::string("../../gl_commandlist_bk3d_models/") + fname;
         fp = fopen(modelPathName.c_str(), "r");
         if(!fp)
         {
-            modelPathName = std::string(PROJECT_ABSDIRECTORY) + std::string(fname);
+            modelPathName = std::string(PROJECT_RELDIRECTORY) + std::string(fname);
             fp = fopen(modelPathName.c_str(), "r");
-            if(!fp) {
-                LOGE("Couldn't Load %s\n", fname);
-                return;
+            if(!fp)
+            {
+                modelPathName = std::string(PROJECT_ABSDIRECTORY) + std::string(fname);
+                fp = fopen(modelPathName.c_str(), "r");
+                if(!fp) {
+                    LOGE("Couldn't Load %s\n", fname);
+                    return;
+                }
             }
         }
     }
@@ -1467,6 +1477,13 @@ void readConfigFile(const char* fname)
                 , &cam.sleep);
             if(res != 7) { LOGE("Error during parsing\n"); return; }
             s_cameraAnim.push_back(cam);
+            if(i==0)
+            {
+              s_cameraAnimIntervals = s_cameraAnim[0].sleep;
+              m_camera.look_at(s_cameraAnim[0].eye, s_cameraAnim[0].focus, true);
+              m_camera.tau = 0.4f;
+              if(s_cameraAnim.size() > 1) s_cameraAnimItem++;
+            }
         }
     }
     fclose(fp);
@@ -1572,7 +1589,7 @@ int sample_main(int argc, const char** argv)
             {
                 const char* name = argv[++i];
                 LOGI("Load Model set to %s\n", name);
-                readConfigFile(name);
+                myWindow.readConfigFile(name);
             }
             break;
         case 'd':
@@ -1599,6 +1616,7 @@ int sample_main(int argc, const char** argv)
         s_bk3dModels.push_back(new Bk3dModel(MODELNAME));
     }
 
+    myWindow.reshape(myWindow.getWidth(), myWindow.getHeight());
     initGraphics();
 
     myWindow.makeContextCurrent();
