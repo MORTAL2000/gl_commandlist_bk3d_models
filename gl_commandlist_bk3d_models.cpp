@@ -108,9 +108,6 @@ static const char *g_glslf_grid =
 "#version 430\n"
 "#extension GL_ARB_separate_shader_objects : enable\n"
 "#extension GL_NV_command_list : enable\n"
-"layout(std140,commandBindableNV,binding=" TOSTR(UBO_LIGHT) ") uniform lightBuffer {\n"
-"   uniform vec3 dir;"
-"} light;\n"
 "layout(location=0) out vec4 outColor;\n"
 "void main() {\n"
 "   outColor = vec4(0.5,0.7,0.5,1);\n"
@@ -855,7 +852,7 @@ void displayGrid(const InertiaCamera& camera, const mat4f projection, GLuint fbo
                 &s_commandGrid.sizes[0], 
                 &s_commandGrid.stateGroups[0], 
                 &s_commandGrid.fbos[0], 
-                int(s_commandGrid.numItems )); 
+                int(s_commandGrid.numItems ));
         }
         return;
     }
@@ -878,10 +875,13 @@ void displayGrid(const InertiaCamera& camera, const mat4f projection, GLuint fbo
         glEnableClientState(GL_VERTEX_ATTRIB_ARRAY_UNIFIED_NV);
         glEnableClientState(GL_ELEMENT_ARRAY_UNIFIED_NV);
         glEnableClientState(GL_UNIFORM_BUFFER_UNIFIED_NV);
+//glDisableClientState(GL_UNIFORM_BUFFER_UNIFIED_NV);
+//glBindBufferBase(GL_UNIFORM_BUFFER,UBO_MATRIX, g_uboMatrix.Id);
+//glBindBufferBase(GL_UNIFORM_BUFFER,UBO_LIGHT, g_uboLight.Id);        
 
         glBufferAddressRangeNV(GL_VERTEX_ATTRIB_ARRAY_ADDRESS_NV, 0, s_vboGridAddr, s_vboGridSz);
         glBufferAddressRangeNV(GL_UNIFORM_BUFFER_ADDRESS_NV, UBO_MATRIX, g_uboMatrix.Addr, g_uboMatrix.Sz);
-        glBufferAddressRangeNV(GL_UNIFORM_BUFFER_ADDRESS_NV, UBO_LIGHT, g_uboLight.Addr, g_uboLight.Sz);
+        //glBufferAddressRangeNV(GL_UNIFORM_BUFFER_ADDRESS_NV, UBO_LIGHT, g_uboLight.Addr, g_uboLight.Sz); // No need
         // debug test: is alignment good ?
         //{
         //    int offsetAlignment;
@@ -907,6 +907,7 @@ void displayGrid(const InertiaCamera& camera, const mat4f projection, GLuint fbo
         //
         glBindBufferBase(GL_UNIFORM_BUFFER,UBO_MATRIX, g_uboMatrix.Id);
         glBindBufferBase(GL_UNIFORM_BUFFER,UBO_LIGHT, g_uboLight.Id);
+
         glBindVertexBuffer(0, s_vboGrid, 0, sizeof(vec3f));
         glVertexAttribFormat(0, 3, GL_FLOAT, GL_FALSE, 0);
         //
@@ -1112,7 +1113,7 @@ bool MyWindow::init()
     addToggleKeyToMFCUI('c', &g_bUseCommandLists, "'c': use Commandlist\n");
     addToggleKeyToMFCUI('e', &g_bUseEmulation, "'e': use Commandlist EMULATION\n");
     addToggleKeyToMFCUI('l', &g_bUseCallCommandListNV, "'l': use glCallCommandListNV\n");
-    //addToggleKeyToMFCUI('b', &g_bUseGridBindless, "'b': regular / bindless for the grid\n");
+    addToggleKeyToMFCUI('b', &g_bUseGridBindless, "'b': regular / bindless for the grid\n");
     addToggleKeyToMFCUI('o', &g_bDisplayObject, "'o': toggles object display\n");
     addToggleKeyToMFCUI('g', &s_bDisplayGrid, "'g': toggles grid display\n");
     addToggleKeyToMFCUI('s', &s_bStats, "'s': toggle stats\n");
@@ -1377,6 +1378,7 @@ void MyWindow::display()
     //
     // additional HUD stuff
     //
+#if 0
 	WindowInertiaCamera::beginDisplayHUD();
     s_helpText -= dt;
     m_oglTextBig.drawString(5, 5, "('h' for help)", 1, vec4f(0.8,0.8,1.0,0.5f).vec_array);
@@ -1391,6 +1393,14 @@ void MyWindow::display()
         h += m_oglTextBig.drawString(5, m_winSz[1]-h, s_sampleHelp, 0, vec4f(0.8,0.8,1.0,s_helpText/HELPDURATION).vec_array);
     }
 	WindowInertiaCamera::endDisplayHUD();
+#else
+// temporary workaround: there is a bug to fix... Bug# 
+ glBegin(GL_TRIANGLES);
+ glVertex3f(0,0,0);
+ glVertex3f(0,0,1);
+ glVertex3f(0,1,1);
+ glEnd();
+ #endif
     {
         //PROFILE_SECTION("SwapBuffers");
         swapBuffers();
@@ -1399,6 +1409,7 @@ void MyWindow::display()
   //
   // Stats
   //
+#if 0
   if (s_bStats && (!stats.empty()))
   {
       char tmp[200];
@@ -1414,7 +1425,7 @@ void MyWindow::display()
         , modelstats.primitives, modelstats.drawcalls, modelstats.attr_update, modelstats.uniform_update);
     hudStats += tmp;
   }
-
+#endif
 }
 //------------------------------------------------------------------------------
 // Main initialization point
