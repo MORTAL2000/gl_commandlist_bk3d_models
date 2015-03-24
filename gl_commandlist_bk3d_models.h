@@ -132,6 +132,7 @@ struct TokenBuffer
 //
 struct CommandStatesBatch
 {
+    CommandStatesBatch() { numItems = 0; }
     void clear()
     {
         for(int i=0; i<stateGroups.size(); i++)
@@ -141,7 +142,7 @@ struct CommandStatesBatch
         fbos.clear();
         numItems = 0;
     }
-    void pushBatch(GLuint stateGroup_, GLuint fbo_, const GLuint64EXT dataGPUPtr_, const GLvoid* dataPtr_, GLsizei size_)
+    void pushBatch(GLuint stateGroup_, GLuint fbo_, GLuint64EXT dataGPUPtr_, const GLvoid* dataPtr_, GLsizei size_)
     {
         dataGPUPtrs.push_back(dataGPUPtr_);
         dataPtrs.push_back(dataPtr_);
@@ -151,7 +152,7 @@ struct CommandStatesBatch
         numItems = fbos.size();
     }
     std::vector<GLuint64EXT> dataGPUPtrs;   // pointer in data where to locate each separate groups (for glListDrawCommandsStatesClientNV)
-    std::vector<GLvoid*>     dataPtrs;   // pointer in data where to locate each separate groups (for glListDrawCommandsStatesClientNV)
+    std::vector<const GLvoid*>     dataPtrs;   // pointer in data where to locate each separate groups (for glListDrawCommandsStatesClientNV)
     std::vector<GLsizei>    sizes;      // sizes of each groups
     std::vector<GLuint>     stateGroups;// state-group IDs used for each groups
     std::vector<GLuint>     fbos;       // FBOs being used for each groups

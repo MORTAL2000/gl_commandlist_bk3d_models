@@ -536,6 +536,8 @@ int Bk3dModel::recordMeshes(GLenum topology, std::vector<int> &offsets, GLsizei 
 //------------------------------------------------------------------------------
 void Bk3dModel::init_command_list()
 {
+    if(m_commandModel.numItems == 0)
+        return;
     if(m_commandList)
         glDeleteCommandListsNV(1, &m_commandList);
     glCreateCommandListsNV(1, &m_commandList);
@@ -576,6 +578,10 @@ bool Bk3dModel::recordTokenBufferObject(GLuint m_fboMSAA8x)
     glEnableClientState(GL_VERTEX_ATTRIB_ARRAY_UNIFIED_NV);
     glEnableClientState(GL_ELEMENT_ARRAY_UNIFIED_NV);
     glEnableClientState(GL_UNIFORM_BUFFER_UNIFIED_NV);
+
+    glBindBufferBase(GL_UNIFORM_BUFFER, UBO_MATRIX, 0);
+    glBindBufferBase(GL_UNIFORM_BUFFER, UBO_LIGHT, 0);
+    glBindBufferBase(GL_UNIFORM_BUFFER, UBO_MATRIXOBJ, 0);
 
     // token buffer for the viewport setting. Need to have a state object and a fbo
     // would be better to use the same as the next state created by the mesh (see below: findStateOrCreate...)
@@ -900,15 +906,19 @@ bool Bk3dModel::loadModel()
     if(!(m_meshFile = bk3d::load(m_name.c_str() )))
     {
         std::string modelPathName;
-        modelPathName = std::string(PROJECT_RELDIRECTORY) + std::string("../downloaded_resources/") + m_name;
+        modelPathName = std::string("../../downloaded_resources/") + m_name;
         if(!(m_meshFile = bk3d::load(modelPathName.c_str())))
         {
-            modelPathName = std::string(PROJECT_RELDIRECTORY) + m_name;
-            m_meshFile = bk3d::load(modelPathName.c_str());
+            modelPathName = std::string(PROJECT_RELDIRECTORY) + std::string("../downloaded_resources/") + m_name;
             if(!(m_meshFile = bk3d::load(modelPathName.c_str())))
             {
-                modelPathName = std::string(PROJECT_ABSDIRECTORY) + m_name;
+                modelPathName = std::string(PROJECT_RELDIRECTORY) + m_name;
                 m_meshFile = bk3d::load(modelPathName.c_str());
+                if(!(m_meshFile = bk3d::load(modelPathName.c_str())))
+                {
+                    modelPathName = std::string(PROJECT_ABSDIRECTORY) + m_name;
+                    m_meshFile = bk3d::load(modelPathName.c_str());
+                }
             }
         }
     }
