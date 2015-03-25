@@ -68,6 +68,8 @@ MyWindow::MyWindow() :
 //------------------------------------------------------------------------------
 void sample_print(int level, const char * txt)
 {
+// FYI, USESVCUI is defined if it is possible to use this UI. 
+// Linux can't have it for now because it is based on Windows MFC. TODO: make a UI for Linux
 #ifdef USESVCUI
     switch(level)
     {
@@ -1383,7 +1385,7 @@ void MyWindow::display()
     //
     // additional HUD stuff
     //
-#if 0
+#ifdef WIN32 // for now Linux implementation may not work properly
 	WindowInertiaCamera::beginDisplayHUD();
     s_helpText -= dt;
     m_oglTextBig.drawString(5, 5, "('h' for help)", 1, vec4f(0.8,0.8,1.0,0.5f).vec_array);
@@ -1414,7 +1416,7 @@ void MyWindow::display()
   //
   // Stats
   //
-#if 0
+#ifdef WIN32 // for now Linux implementation may not work properly
   if (s_bStats && (!stats.empty()))
   {
       char tmp[200];
