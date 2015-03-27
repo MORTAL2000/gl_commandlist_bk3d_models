@@ -162,8 +162,8 @@ void updateViewportTokenBufferAndLineWidth(GLint x, GLint y, GLsizei width, GLsi
 //-----------------------------------------------------------------------------
 #ifdef USESVCUI
 IWindowFolding*   g_pTweakContainer = NULL;
-TwBar*      tweakBar = NULL;
 #endif
+TwBar*      tweakBar = NULL;
 nv_helpers_gl::Profiler      g_profiler;
 
 GLSLShader g_shaderGrid;
@@ -1115,6 +1115,7 @@ bool MyWindow::init()
     g_pTweakContainer->UnFold();
     g_pTweakContainer->SetVisible(0);
 #endif
+#endif
     //
     // AntTweakbar UI
     //
@@ -1145,7 +1146,7 @@ bool MyWindow::init()
     TwEnumVal dsModes[3] = {{NVFBOBox::DS1, "1 tap"},{NVFBOBox::DS2, "5 taps"},{NVFBOBox::DS3, "9 taps on alpha"}};
     TwType dsModesEnum = TwDefineEnum("dsModesEnum", &(dsModes[0]), 3 );
     TwAddVarCB(tweakBar, "DSMode", dsModesEnum, setDSModeCB, getDSModeCB, this, "label=down-sampling");
-#endif
+
     addToggleKeyToUI(' ', &m_realtime.bNonStopRendering, "space: toggles continuous rendering");
     addToggleKeyToUI('c', &g_bUseCommandLists, "'c': use Commandlist");
     addToggleKeyToUI('e', &g_bUseEmulation, "'e': use Commandlist EMULATION");
@@ -1315,7 +1316,7 @@ void MyWindow::mousewheel(short delta)
     WindowInertiaCamera::mousewheel(delta);
 
     static int s_WheelPos = 0;
-    delta /= WHEEL_DELTA;
+    delta /= 120/*WHEEL_DELTA*/;
     if(delta > 3)
         delta = 3;
     if(delta < -3)
