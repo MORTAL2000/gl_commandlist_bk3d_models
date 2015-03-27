@@ -43,7 +43,7 @@ _add_project_definitions(${PROJNAME})
 #
 #_add_package_NSight()
 _add_package_MFCUI()
-#_add_package_AntTweakBar()
+_add_package_AntTweakBar()
 _add_package_OpenGLText()
 _add_package_ZLIB()
 #_add_package_nvFx()

@@ -26,6 +26,7 @@
 */ //--------------------------------------------------------------------
 #include "gl_commandlist_bk3d_models.h"
 #include "NVFBOBox.h"
+#include "AntTweakBar.h"
 
 #define GRIDDEF 20
 #define GRIDSZ 1.0f
@@ -36,18 +37,18 @@
 //-----------------------------------------------------------------------------
 class MyWindow: public WindowInertiaCamera
 {
-private:
+public:
     NVFBOBox  m_fboBox;
     NVFBOBox::DownSamplingTechnique downsamplingMode;
-public:
+
     MyWindow();
 
     virtual bool init();
     virtual void shutdown();
     virtual void reshape(int w, int h);
-    //virtual void motion(int x, int y);
-    //virtual void mousewheel(short delta);
-    //virtual void mouse(NVPWindow::MouseButton button, ButtonAction action, int mods, int x, int y);
+    virtual void motion(int x, int y);
+    virtual void mousewheel(short delta);
+    virtual void mouse(NVPWindow::MouseButton button, ButtonAction action, int mods, int x, int y);
     //virtual void menu(int m);
     virtual void keyboard(MyWindow::KeyCode key, ButtonAction action, int mods, int x, int y);
     virtual void keyboardchar(unsigned char key, int mods, int x, int y);
@@ -130,6 +131,7 @@ static const char* s_sampleHelp =
     "'g': toggles grid display\n"
     "'s': toggle stats\n"
     "'a': animate camera\n"
+    "'u': toggle UI overlay\n"
 ;
 static const char* s_sampleHelpCmdLine = 
     "---------- Cmd-line arguments ----------\n"
@@ -140,6 +142,7 @@ static const char* s_sampleHelpCmdLine =
     "-g 0 or 1 : display grid\n"
     "-s 0 or 1 : stats\n"
     "-a 0 or 1 : animate camera\n"
+    "-u 0 or 1 : UI overlay\n"
     "-i <file> : use a config file to load models and setup camera animation\n"
     "-d 0 or 1 : debug stuff (ui)\n"
     "-m <bk3d file> : load a specific model\n"
@@ -159,6 +162,7 @@ void updateViewportTokenBufferAndLineWidth(GLint x, GLint y, GLsizei width, GLsi
 //-----------------------------------------------------------------------------
 #ifdef USESVCUI
 IWindowFolding*   g_pTweakContainer = NULL;
+TwBar*      tweakBar = NULL;
 #endif
 nv_helpers_gl::Profiler      g_profiler;
 
@@ -188,9 +192,7 @@ std::vector<Bk3dModel*> s_bk3dModels;
 }
 static int      s_curObject = 0;
 static bool     s_bCreateDebugUI = false;
-//-----------------------------------------------------------------------------
-// Static variables
-//-----------------------------------------------------------------------------
+static bool     s_bShowAntTweakBar = true;
 static int      s_MSAA             = 8;
 
 //
@@ -930,6 +932,96 @@ void displayGrid(const InertiaCamera& camera, const mat4f projection, GLuint fbo
 }
 
 //------------------------------------------------------------------------------
+// AntTweakBar Callbacks
+//------------------------------------------------------------------------------
+void TW_CALL errorHandler(const char *errorMessage)
+{
+    LOGW(errorMessage);
+}
+void TW_CALL setCLModeCB(const void *value, void * /*clientData*/)
+{
+    g_TokenBufferGrouping = ((int*)value)[0];
+}
+void TW_CALL getCLModeCB(void *value, void * /*clientData*/)
+{
+    ((int *)value)[0] = g_TokenBufferGrouping;
+}
+void TW_CALL setMSAAModeCB(const void *value, void * clientData)
+{
+    s_MSAA = ((int*)value)[0];
+    MyWindow* p = reinterpret_cast<MyWindow*>(clientData);
+    p->m_fboBox.resize(p->m_winSz[0], p->m_winSz[1], g_Supersampling, s_MSAA);
+    p->m_fboBox.MakeResourcesResident();
+    FOREACHMODEL(update_fbo_target(p->m_fboBox.GetFBO()));
+    // the comman-list needs to be rebuilt when FBO's resources changed
+    #if 1
+    FOREACHMODEL(invalidateCmdList());
+    s_bRecordGrid = true;
+    #else
+    init_command_list();
+    #endif
+}
+void TW_CALL getMSAAModeCB(void *value, void * /*clientData*/)
+{
+    ((int *)value)[0] = s_MSAA;
+}
+void TW_CALL setSSModeCB(const void *value, void * clientData)
+{
+    g_Supersampling = 0.1f * (float)((int*)value)[0];
+    MyWindow* p = reinterpret_cast<MyWindow*>(clientData);
+    p->m_fboBox.resize(p->m_winSz[0], p->m_winSz[1], g_Supersampling, s_MSAA);
+    p->m_fboBox.MakeResourcesResident();
+    //
+    // update the token buffer in which the viewport setup happens for token rendering
+    //
+    updateViewportTokenBufferAndLineWidth(0,0,p->m_fboBox.getBufferWidth(),p->m_fboBox.getBufferHeight(), g_Supersampling);
+    //
+    // remember that commands must know which FBO is targeted
+    //
+    FOREACHMODEL(update_fbo_target(p->m_fboBox.GetFBO()));
+    // the comman-list needs to be rebuilt when FBO's resources changed
+    #if 1
+    FOREACHMODEL(invalidateCmdList());
+    s_bRecordGrid = true;
+    #else
+    init_command_list();
+    #endif
+}
+void TW_CALL getSSModeCB(void *value, void * /*clientData*/)
+{
+    ((int *)value)[0] = g_Supersampling*10;
+}
+void TW_CALL setDSModeCB(const void *value, void * clientData)
+{
+    MyWindow* p = reinterpret_cast<MyWindow*>(clientData);
+    p->downsamplingMode = (NVFBOBox::DownSamplingTechnique)((int*)value)[0];;
+}
+void TW_CALL getDSModeCB(void *value, void * clientData)
+{
+    MyWindow* p = reinterpret_cast<MyWindow*>(clientData);
+    ((int *)value)[0] = p->downsamplingMode;
+}
+void TW_CALL setToggleCB(const void *value, void * b)
+{
+    ((bool*)b)[0] = ((int*)value)[0] ? true:false;
+}
+void TW_CALL getToggleCB(void *value, void * b)
+{
+    ((int *)value)[0] = ((bool*)b)[0] ? 1:0;
+}
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
+inline void addToggleKeyToUI(char c, bool* target, const char* desc)
+{
+    addToggleKey(c, target, desc);
+    char str[2] = { c, '\0'};
+    char descstr[200];
+    sprintf(descstr, "label='%s'", desc);
+    TwAddVarCB(tweakBar, str, TW_TYPE_BOOLCPP, &setToggleCB, &getToggleCB, target, descstr);
+}
+
+//------------------------------------------------------------------------------
 //
 //------------------------------------------------------------------------------
 bool MyWindow::init()
@@ -970,98 +1062,7 @@ bool MyWindow::init()
     // easy Toggles
     //
 #ifdef USESVCUI
-	class EventUI: public IEventsWnd
-	{
-	public:
-		void Button(IWindow *pWin, int pressed)
-            { reinterpret_cast<MyWindow*>(pWin->GetUserData())->m_bAdjustTimeScale = true; };
-        void ComboSelectionChanged(IControlCombo *pWin, unsigned int selectedidx)
-            {   
-                if(!strcmp(pWin->GetID(), "DS"))
-                {
-                    MyWindow* p = reinterpret_cast<MyWindow*>(pWin->GetUserData());
-                    p->downsamplingMode = (NVFBOBox::DownSamplingTechnique)pWin->GetItemData(selectedidx);
-                }
-                else if(!strcmp(pWin->GetID(), "MSAA"))
-                {
-                    s_MSAA = pWin->GetItemData(selectedidx);
-                    MyWindow* p = reinterpret_cast<MyWindow*>(pWin->GetUserData());
-                    p->m_fboBox.resize(p->m_winSz[0], p->m_winSz[1], g_Supersampling, s_MSAA);
-                    p->m_fboBox.MakeResourcesResident();
-                    FOREACHMODEL(update_fbo_target(p->m_fboBox.GetFBO()));
-                    // the comman-list needs to be rebuilt when FBO's resources changed
-                    #if 1
-                    FOREACHMODEL(invalidateCmdList());
-                    s_bRecordGrid = true;
-                    #else
-                    init_command_list();
-                    #endif
-                }
-                else if(!strcmp(pWin->GetID(), "SS"))
-                {
-                    g_Supersampling = 0.1f * (float)pWin->GetItemData(selectedidx);
-                    MyWindow* p = reinterpret_cast<MyWindow*>(pWin->GetUserData());
-                    p->m_fboBox.resize(p->m_winSz[0], p->m_winSz[1], g_Supersampling, s_MSAA);
-                    p->m_fboBox.MakeResourcesResident();
-                    //
-                    // update the token buffer in which the viewport setup happens for token rendering
-                    //
-                    updateViewportTokenBufferAndLineWidth(0,0,p->m_fboBox.getBufferWidth(),p->m_fboBox.getBufferHeight(), g_Supersampling);
-                    //
-                    // remember that commands must know which FBO is targeted
-                    //
-                    FOREACHMODEL(update_fbo_target(p->m_fboBox.GetFBO()));
-                    // the comman-list needs to be rebuilt when FBO's resources changed
-                    #if 1
-                    FOREACHMODEL(invalidateCmdList());
-                    s_bRecordGrid = true;
-                    #else
-                    init_command_list();
-                    #endif
-                }
-                else
-                {
-                    FOREACHMODEL(deleteCommandListData());
-                    g_TokenBufferGrouping = selectedidx;
-                }
-            }
-	};
-	static EventUI eventUI;
-	//g_pWinHandler->CreateCtrlButton("TIMESCALE", "re-scale timing", g_pToggleContainer)
-	//	->SetUserData(this)
-	//	->Register(&eventUI);
-
-    g_pToggleContainer->UnFold(false);
-    IControlCombo* pCombo = g_pWinHandler->CreateCtrlCombo("CLMODE", "CommandList style", g_pToggleContainer);
-	pCombo->SetUserData(this)->Register(&eventUI);
-    pCombo->AddItem("Unsorted primitive types", 0);
-    pCombo->AddItem("Sort on primitive types", 1);
-    pCombo->SetSelectedByIndex(0);
-
-    pCombo = g_pWinHandler->CreateCtrlCombo("MSAA", "MSAA", g_pToggleContainer);
-    pCombo->AddItem("MSAA 1x", 1);
-    pCombo->AddItem("MSAA 4x", 4);
-    pCombo->AddItem("MSAA 8x", 8);
-	pCombo->SetUserData(this)->Register(&eventUI);
-    pCombo->SetSelectedByData(s_MSAA);
-
-    pCombo = g_pWinHandler->CreateCtrlCombo("SS", "Supersampling", g_pToggleContainer);
-    pCombo->AddItem("SS 1", 10);
-    pCombo->AddItem("SS 1.5", 15);
-    pCombo->AddItem("SS 2.0", 20);
-	pCombo->SetUserData(this)->Register(&eventUI);
-    pCombo->SetSelectedByData(g_Supersampling*10);
-    pCombo->PeekMyself();
-
-    pCombo = g_pWinHandler->CreateCtrlCombo("DS", "DownSampling mode", g_pToggleContainer);
-	pCombo->SetUserData(this)->Register(&eventUI);
-    pCombo->AddItem("1 tap", NVFBOBox::DS1);
-    pCombo->AddItem("5 taps", NVFBOBox::DS2);
-    pCombo->AddItem("9 taps on alpha", NVFBOBox::DS3);
-    pCombo->SetSelectedByIndex(1);
-
-    g_pToggleContainer->UnFold();
-
+    g_pToggleContainer->SetVisible(0);
 #if 1
     //
     // This code is to adjust models in the scene. Then output the values with '2' or button
@@ -1114,17 +1115,47 @@ bool MyWindow::init()
     g_pTweakContainer->UnFold();
     g_pTweakContainer->SetVisible(0);
 #endif
+    //
+    // AntTweakbar UI
+    //
+    TwInit(TW_OPENGL_CORE, NULL);
+    TwHandleErrors(errorHandler);
+    tweakBar = TwNewBar("Tweaks");
+    char strDef[300];
+    sprintf(strDef,"Tweaks \
+             label='Tweak' \
+             position='%d %d' size='300 300' \
+             valueswidth=59 \
+             color='128 128 200' alpha='60' \
+             contained=true", m_winSz[0]-320, m_winSz[1]-320);
+    TwDefine(strDef);
 
+    TwEnumVal clModes[2] = {{0, "Unsorted primitive types"},{1, "Sort on primitive types"}};
+    TwType clModesEnum = TwDefineEnum("clModesEnum", &(clModes[0]), 2 );
+    TwAddVarCB(tweakBar, "CLMode", clModesEnum, setCLModeCB, getCLModeCB, NULL, "label='command-list mode'");
+
+    TwEnumVal msaaModes[3] = {{8, "MSAA 8x"},{4, "MSAA 4x"},{1, "NO MSAA"}};
+    TwType msaaModesEnum = TwDefineEnum("msaaModesEnum", &(msaaModes[0]), 3 );
+    TwAddVarCB(tweakBar, "MSAAMode", msaaModesEnum, setMSAAModeCB, getMSAAModeCB, this, "label=MSAA");
+
+    TwEnumVal ssModes[3] = {{10, "SS 1"},{15, "SS 1.5"},{20, "SS 2"}};
+    TwType ssModesEnum = TwDefineEnum("ssModesEnum", &(ssModes[0]), 3 );
+    TwAddVarCB(tweakBar, "SSMode", ssModesEnum, setSSModeCB, getSSModeCB, this, "label=Super-sampling");
+
+    TwEnumVal dsModes[3] = {{NVFBOBox::DS1, "1 tap"},{NVFBOBox::DS2, "5 taps"},{NVFBOBox::DS3, "9 taps on alpha"}};
+    TwType dsModesEnum = TwDefineEnum("dsModesEnum", &(dsModes[0]), 3 );
+    TwAddVarCB(tweakBar, "DSMode", dsModesEnum, setDSModeCB, getDSModeCB, this, "label=down-sampling");
 #endif
-    addToggleKeyToMFCUI(' ', &m_realtime.bNonStopRendering, "space: toggles continuous rendering\n");
-    addToggleKeyToMFCUI('c', &g_bUseCommandLists, "'c': use Commandlist\n");
-    addToggleKeyToMFCUI('e', &g_bUseEmulation, "'e': use Commandlist EMULATION\n");
-    addToggleKeyToMFCUI('l', &g_bUseCallCommandListNV, "'l': use glCallCommandListNV\n");
-    addToggleKeyToMFCUI('b', &g_bUseGridBindless, "'b': regular / bindless for the grid\n");
-    addToggleKeyToMFCUI('o', &g_bDisplayObject, "'o': toggles object display\n");
-    addToggleKeyToMFCUI('g', &s_bDisplayGrid, "'g': toggles grid display\n");
-    addToggleKeyToMFCUI('s', &s_bStats, "'s': toggle stats\n");
-    addToggleKeyToMFCUI('a', &s_bCameraAnim, "'a': animate camera\n");
+    addToggleKeyToUI(' ', &m_realtime.bNonStopRendering, "space: toggles continuous rendering");
+    addToggleKeyToUI('c', &g_bUseCommandLists, "'c': use Commandlist");
+    addToggleKeyToUI('e', &g_bUseEmulation, "'e': use Commandlist EMULATION");
+    addToggleKeyToUI('l', &g_bUseCallCommandListNV, "'l': use glCallCommandListNV");
+    addToggleKeyToUI('b', &g_bUseGridBindless, "'b': regular / bindless for the grid");
+    addToggleKeyToUI('o', &g_bDisplayObject, "'o': toggles object display");
+    addToggleKeyToUI('g', &s_bDisplayGrid, "'g': toggles grid display");
+    addToggleKeyToUI('s', &s_bStats, "'s': toggle stats");
+    addToggleKeyToUI('a', &s_bCameraAnim, "'a': animate camera");
+    addToggleKeyToUI('u', &s_bShowAntTweakBar, "'u': toggle UI overlay");
 
     return true;
 }
@@ -1251,6 +1282,7 @@ void MyWindow::shutdown()
 //------------------------------------------------------------------------------
 void MyWindow::reshape(int w, int h)
 {
+    TwWindowSize(w, h);
     WindowInertiaCamera::reshape(w, h);
     m_fboBox.resize(w, h);
     m_fboBox.MakeResourcesResident();
@@ -1264,6 +1296,41 @@ void MyWindow::reshape(int w, int h)
     // we need to rebuild the *command-lists*
     //
     FOREACHMODEL(init_command_list());
+
+    char strDef[100];
+    sprintf(strDef,"Tweaks position='%d %d' size='300 300'", m_winSz[0]-320, m_winSz[1]-320);
+    TwDefine(strDef);
+}
+void MyWindow::motion(int x, int y)
+{
+    int ret = TwMouseMotion(x, y);
+    if(ret) {
+		postRedisplay();
+        return;
+	}
+    WindowInertiaCamera::motion(x,y);
+}
+void MyWindow::mousewheel(short delta)
+{
+    WindowInertiaCamera::mousewheel(delta);
+
+    static int s_WheelPos = 0;
+    delta /= WHEEL_DELTA;
+    if(delta > 3)
+        delta = 3;
+    if(delta < -3)
+        delta = -3;
+    s_WheelPos += delta;
+    int handled = TwMouseWheel(s_WheelPos);
+}
+void MyWindow::mouse(NVPWindow::MouseButton button, ButtonAction action, int mods, int x, int y)
+{
+    int res = TwMouseButton(action==BUTTON_PRESS? TW_MOUSE_PRESSED: TW_MOUSE_RELEASED, (TwMouseButtonID)(button+1));
+    if(res) {
+		postRedisplay();
+        return;
+	}
+    WindowInertiaCamera::mouse(button, action, mods, x, y);
 }
 
 //------------------------------------------------------------------------------
@@ -1272,6 +1339,42 @@ void MyWindow::reshape(int w, int h)
 #define KEYTAU 0.10f
 void MyWindow::keyboard(NVPWindow::KeyCode key, MyWindow::ButtonAction action, int mods, int x, int y)
 {
+    // to fix some mapping issues with special keys
+    // TODO: find the real Fix...
+    if(action == MyWindow::BUTTON_PRESS)
+    {
+        switch(key)
+        {
+        case NVPWindow::KEY_HOME:
+            if(TwEventSpecialGLUT(106/*GLUT_KEY_HOME*/, x,y) ) { postRedisplay(); return; }
+            break;
+        case NVPWindow::KEY_END:
+            if(TwEventSpecialGLUT(107/*GLUT_KEY_END*/, x,y) ) { postRedisplay(); return; }
+            break;
+        case NVPWindow::KEY_LEFT:
+            if(TwEventSpecialGLUT(100/*GLUT_KEY_LEFT*/, x,y) ) { postRedisplay(); return; }
+            break;
+        case NVPWindow::KEY_RIGHT:
+            if(TwEventSpecialGLUT(102/*GLUT_KEY_RIGHT*/, x,y) ) { postRedisplay(); return; }
+            break;
+        case NVPWindow::KEY_BACKSPACE:
+            if(TwEventKeyboardGLUT(TW_KEY_BACKSPACE, x,y) ) { postRedisplay(); return; }
+            break;
+        case NVPWindow::KEY_DELETE:
+            if(TwEventKeyboardGLUT(TW_KEY_DELETE, x,y) ) { postRedisplay(); return; }
+            break;
+        case NVPWindow::KEY_ENTER:
+        case NVPWindow::KEY_KP_ENTER:
+            if(TwEventKeyboardGLUT(TW_KEY_RETURN, x,y)) { postRedisplay(); return; }
+            break;
+        }
+    }
+    TwEventMousePosGLFW(x,y);
+    if(TwEventKeyGLFW(key, action) ) {
+    //if(TwEventSpecialGLUT(key, x,y) ) {
+		postRedisplay();
+        return;
+	}
 	WindowInertiaCamera::keyboard(key, action, mods, x, y);
 
 	if(action == MyWindow::BUTTON_RELEASE)
@@ -1291,6 +1394,13 @@ void MyWindow::keyboard(NVPWindow::KeyCode key, MyWindow::ButtonAction action, i
 //------------------------------------------------------------------------------
 void MyWindow::keyboardchar( unsigned char key, int mods, int x, int y )
 {
+    //int res = TwEventKeyboardGLUT(key, x,y);
+    TwEventMousePosGLFW(x,y);
+    int res = TwEventCharGLFW(key, BUTTON_PRESS|mods);
+    if(res) {
+		postRedisplay();
+        return;
+	}
     WindowInertiaCamera::keyboardchar(key, mods, x, y);
     switch(key)
     {
@@ -1400,14 +1510,17 @@ void MyWindow::display()
         h += m_oglTextBig.drawString(5, m_winSz[1]-h, s_sampleHelp, 0, vec4f(0.8,0.8,1.0,s_helpText/HELPDURATION).vec_array);
     }
 	WindowInertiaCamera::endDisplayHUD();
-#else
-// temporary workaround: there is a bug to fix... Bug# 
- glBegin(GL_TRIANGLES);
- glVertex3f(0,0,0);
- glVertex3f(0,0,1);
- glVertex3f(0,1,1);
- glEnd();
- #endif
+#endif
+    // Draw tweak bars
+    if(s_bShowAntTweakBar)
+        TwDraw();
+    else {
+        //temporary workaround IF nothing else : there is a bug to fix... Bug# 
+        glDisableVertexAttribArray(0);
+        glDisableVertexAttribArray(1);
+        glDrawArrays(GL_POINTS, 0,1);
+    }
+
     {
         //PROFILE_SECTION("SwapBuffers");
         swapBuffers();
@@ -1583,6 +1696,10 @@ int sample_main(int argc, const char** argv)
         case 'a':
             s_bCameraAnim = atoi(argv[++i]) ? true : false;
             LOGI("s_bCameraAnim set to %s\n", s_bCameraAnim ? "true":"false");
+            break;
+        case 'u':
+            s_bShowAntTweakBar = atoi(argv[++i]) ? true : false;
+            LOGI("UI overlay %s\n", s_bShowAntTweakBar ? "visible":"hidden");
             break;
         case 'q':
             s_MSAA = atoi(argv[++i]);
