@@ -27,6 +27,7 @@
 #include "gl_commandlist_bk3d_models.h"
 #include "NVFBOBox.h"
 #include "AntTweakBar.h"
+#include <list>
 
 #define GRIDDEF 20
 #define GRIDSZ 1.0f
@@ -63,32 +64,6 @@ MyWindow::MyWindow() :
     , downsamplingMode(NVFBOBox::DS2)
 {
 }
-
-//------------------------------------------------------------------------------
-// 
-//------------------------------------------------------------------------------
-void sample_print(int level, const char * txt)
-{
-// FYI, USESVCUI is defined if it is possible to use this UI. 
-// Linux can't have it for now because it is based on Windows MFC. TODO: make a UI for Linux
-#ifdef USESVCUI
-    switch(level)
-    {
-    case 0:
-    case 1:
-        logMFCUI(level, txt);
-        break;
-    case 2:
-        logMFCUI(level, txt);
-        break;
-    default:
-        logMFCUI(level, txt);
-        break;
-    }
-#else
-#endif
-}
-
 
 //-----------------------------------------------------------------------------
 // Grid
@@ -168,10 +143,10 @@ nv_helpers_gl::Profiler      g_profiler;
 
 GLSLShader g_shaderGrid;
 
-bool        g_bUseCommandLists  = true;
+bool        g_bUseCommandLists  = false;
 bool        g_bUseEmulation     = false;
 bool        g_bUseCallCommandListNV = false;
-bool        g_bUseGridBindless  = true;
+bool        g_bUseGridBindless  = false;
 bool        g_bDisplayObject    = true;
 
 float       g_Supersampling    = 1.0f;
@@ -236,6 +211,23 @@ static CommandStatesBatch   s_commandGrid;
 static TokenBuffer          s_tokenBufferGrid;
 TokenBuffer                 g_tokenBufferViewport;
 
+//------------------------------------------------------------------------------
+// It is possible that this callback is invoked from another thread
+// so let's just append messages for later diplay in the main loop
+//------------------------------------------------------------------------------
+struct LogMessage {
+    LogMessage(int l, const char* t) { level=l; txt=t; }
+    int level;
+    std::string txt;
+};
+typedef std::list<LogMessage> Messages;
+static Messages s_messages;
+//------------------------------------------------------------------------------
+void sample_print(int level, const char * txt)
+{
+    // normally we should enter a critical section...
+    s_messages.push_back(LogMessage(level, txt) );
+}
 //-----------------------------------------------------------------------------
 // Useful stuff for Command-list
 //-----------------------------------------------------------------------------
@@ -936,7 +928,12 @@ void displayGrid(const InertiaCamera& camera, const mat4f projection, GLuint fbo
 //------------------------------------------------------------------------------
 void TW_CALL errorHandler(const char *errorMessage)
 {
+    static bool inMessage = false;
+    if(inMessage)
+        return;
+    inMessage = true;
     LOGW(errorMessage);
+    inMessage = false;
 }
 void TW_CALL setCLModeCB(const void *value, void * /*clientData*/)
 {
@@ -1521,7 +1518,6 @@ void MyWindow::display()
         glDisableVertexAttribArray(1);
         glDrawArrays(GL_POINTS, 0,1);
     }
-
     {
         //PROFILE_SECTION("SwapBuffers");
         swapBuffers();
@@ -1757,6 +1753,14 @@ int sample_main(int argc, const char** argv)
 
     while(MyWindow::sysPollEvents(false) )
     {
+        while(!s_messages.empty())
+        {
+            Messages::iterator im = s_messages.begin();
+            #ifdef USESVCUI // Windows only...
+            logMFCUI(im->level, im->txt.c_str());
+            #endif
+            s_messages.erase(im);
+        }
         myWindow.idle();
     }
     return true;
