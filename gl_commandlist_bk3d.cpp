@@ -408,7 +408,7 @@ int Bk3dModel::recordMeshes(GLenum topology, std::vector<int> &offsets, GLsizei 
             //
             // change the program is lines vs. polygons: no normals for lines
             //
-            if(pPG->topologyGL == GL_LINES)
+            if((pPG->topologyGL == GL_LINES)||(pPG->topologyGL == GL_LINE_STRIP))
             {
                 glDisable(GL_POLYGON_OFFSET_FILL);
                 s_shaderMeshLine.bindShader();
