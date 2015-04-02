@@ -1512,12 +1512,15 @@ void MyWindow::display()
     // Draw tweak bars
     if(s_bShowAntTweakBar)
         TwDraw();
+#ifndef WIN32
     else {
-        //temporary workaround IF nothing else : there is a bug to fix... Bug# 
+        //temporary workaround: if nothing else but command-lists rendered, we have a bug in 347.88 (but fixed for next ones)
+        // Need to draw something fake as workaround...
         glDisableVertexAttribArray(0);
         glDisableVertexAttribArray(1);
         glDrawArrays(GL_POINTS, 0,1);
     }
+#endif
     {
         //PROFILE_SECTION("SwapBuffers");
         swapBuffers();
