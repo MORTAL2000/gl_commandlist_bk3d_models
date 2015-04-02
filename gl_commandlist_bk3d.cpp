@@ -90,13 +90,6 @@ static const char *s_glslf_mesh_line =
 "#version 430\n"
 "#extension GL_ARB_separate_shader_objects : enable\n"
 "#extension GL_NV_command_list : enable\n"
-"layout(std140,commandBindableNV,binding=" TOSTR(UBO_MATERIAL) ") uniform materialBuffer {\n"
-"   uniform vec3 diffuse;"
-"} material;\n"
-"layout(std140,commandBindableNV,binding=" TOSTR(UBO_LIGHT) ") uniform lightBuffer {\n"
-"   uniform vec3 dir;"
-"} light;\n"
-"layout(location=1) in  vec3 N;\n"
 "layout(location=0) out vec4 outColor;\n"
 "void main() {\n"
 "\n"
@@ -1050,7 +1043,7 @@ void Bk3dModel::displayObject(const mat4f& cameraView, const mat4f projection, G
             }
             //====> Pos
             bk3d::Attribute* pAttrPos = pMesh->pAttributes->p[0];
-            glBindVertexBuffer(0, 0, 0, pAttrPos->strideBytes);
+            glBindVertexBuffer(0, curVBO.Id, 0, pAttrPos->strideBytes); // essentially for the stride. curVBO.Id shouldn't matter (but solves a low-pri warning in Linux)
             glVertexAttribFormat(0,pAttrPos->numComp, pAttrPos->formatGL, GL_FALSE, pAttrPos->dataOffsetBytes);
             glBufferAddressRangeNV(GL_VERTEX_ATTRIB_ARRAY_ADDRESS_NV, 0, 
                 curVBO.Addr + (GLuint64EXT)pMesh->pSlots->p[pAttrPos->slot]->userPtr.p, 
@@ -1060,7 +1053,7 @@ void Bk3dModel::displayObject(const mat4f& cameraView, const mat4f projection, G
             {
 	            glEnableVertexAttribArray(1);
                 bk3d::Attribute* pAttrN = pMesh->pAttributes->p[1];
-                glBindVertexBuffer(1, 0, 0, pAttrN->strideBytes);
+                glBindVertexBuffer(1, curVBO.Id, 0, pAttrN->strideBytes); // essentially for the stride. curVBO.Id shouldn't matter (but solves a low-pri warning in Linux)
                 glVertexAttribFormat(1, pAttrN->numComp, pAttrN->formatGL, GL_TRUE, pAttrN->dataOffsetBytes);
 			    glBufferAddressRangeNV(GL_VERTEX_ATTRIB_ARRAY_ADDRESS_NV, 1,
                     curVBO.Addr + (GLuint64EXT)pMesh->pSlots->p[pAttrN->slot]->userPtr.p,
@@ -1111,9 +1104,9 @@ void Bk3dModel::displayObject(const mat4f& cameraView, const mat4f projection, G
 				        pMesh->pPrimGroups->p[pg]->indexFormatGL,
 				        NULL);
                 } else {
-			        glDrawArrays(
+			        /*glDrawArrays(
 				        pMesh->pPrimGroups->p[pg]->topologyGL,
-				        0, pMesh->pPrimGroups->p[pg]->indexCount);
+				        0, pMesh->pPrimGroups->p[pg]->indexCount);*/
                 }
 		    }
 	    }
