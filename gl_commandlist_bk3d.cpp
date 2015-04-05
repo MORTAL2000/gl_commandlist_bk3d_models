@@ -802,8 +802,8 @@ bool Bk3dModel::initBuffersObject()
             pS->userData = 0;
             pS->userPtr = (int*)curVBO.Sz;
             GLuint alignedSz = (pS->vtxBufferSizeBytes >> 8);
-            alignedSz += pS->vtxBufferSizeBytes & 0xFF ? 1 : 0;
             alignedSz = alignedSz << 8;
+            if(pS->vtxBufferSizeBytes & 0xFF) alignedSz += 256;
             curVBO.Sz += alignedSz;
         }
         //
