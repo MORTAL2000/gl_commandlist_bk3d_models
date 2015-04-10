@@ -137,9 +137,11 @@ struct CommandStatesBatch
     {
         for(int i=0; i<stateGroups.size(); i++)
             glDeleteStatesNV(1, &stateGroups[i]);
+        dataPtrs.clear();
+        dataGPUPtrs.clear();
         sizes.clear();
-        stateGroups.clear();
         fbos.clear();
+        stateGroups.clear();
         numItems = 0;
     }
     void pushBatch(GLuint stateGroup_, GLuint fbo_, GLuint64EXT dataGPUPtr_, const GLvoid* dataPtr_, GLsizei size_)
@@ -158,11 +160,12 @@ struct CommandStatesBatch
     std::vector<GLuint>     fbos;       // FBOs being used for each groups
     size_t                  numItems;   // == fbos.size() or sizes.size()...
 };
-extern TokenBuffer g_tokenBufferViewport;
 
 //
 // Externs
 //
+extern TokenBuffer g_tokenBufferViewport;
+
 extern nv_helpers_gl::Profiler  g_profiler;
 
 extern bool         g_bUseEmulation;
@@ -170,9 +173,14 @@ extern bool         g_bUseCommandLists;
 extern bool         g_bUseCallCommandListNV;
 extern bool         g_bUseBindless;
 extern bool         g_bDisplayObject;
+extern bool         g_bRotateOx90;
+extern bool         g_bWireframe;
+
 extern int          g_TokenBufferGrouping;
 extern int          g_MaxBOSz;
 extern float        g_Supersampling;
+
+extern int          g_firstMesh;
 
 extern MatrixBufferGlobal g_globalMatrices;
 

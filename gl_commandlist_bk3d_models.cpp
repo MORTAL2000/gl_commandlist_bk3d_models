@@ -148,13 +148,20 @@ bool        g_bUseEmulation     = false;
 bool        g_bUseCallCommandListNV = false;
 bool        g_bUseGridBindless  = false;
 bool        g_bDisplayObject    = true;
+bool        g_bRotateOx90 = true;
+bool        g_bWireframe = false;
 
 float       g_Supersampling    = 1.0f;
+
+int         g_firstMesh = 0;
 
 MatrixBufferGlobal      g_globalMatrices;
 
 BO g_uboMatrix      = {0,0,0};
 BO g_uboLight       = {0,0,0};
+
+TokenBuffer g_tokenBufferViewport;
+
 //-----------------------------------------------------------------------------
 // Static variables for setting up the scene...
 //-----------------------------------------------------------------------------
@@ -209,7 +216,6 @@ static GLuint      s_vao                    = 0;
 static CommandStatesBatch   s_commandGrid;
 
 static TokenBuffer          s_tokenBufferGrid;
-TokenBuffer                 g_tokenBufferViewport;
 
 //------------------------------------------------------------------------------
 // It is possible that this callback is invoked from another thread
@@ -1144,12 +1150,16 @@ bool MyWindow::init()
     TwType dsModesEnum = TwDefineEnum("dsModesEnum", &(dsModes[0]), 3 );
     TwAddVarCB(tweakBar, "DSMode", dsModesEnum, setDSModeCB, getDSModeCB, this, "label=down-sampling");
 
+    TwAddVarRW(tweakBar, "FSTMESH", TW_TYPE_UINT32, &g_firstMesh, "label='first mesh' step=1 min=0 max=1000");    
+
     addToggleKeyToUI(' ', &m_realtime.bNonStopRendering, "space: toggles continuous rendering");
     addToggleKeyToUI('c', &g_bUseCommandLists, "'c': use Commandlist");
     addToggleKeyToUI('e', &g_bUseEmulation, "'e': use Commandlist EMULATION");
     addToggleKeyToUI('l', &g_bUseCallCommandListNV, "'l': use glCallCommandListNV");
     addToggleKeyToUI('b', &g_bUseGridBindless, "'b': regular / bindless for the grid");
     addToggleKeyToUI('o', &g_bDisplayObject, "'o': toggles object display");
+    addToggleKeyToUI('x', &g_bRotateOx90, "'x': toggles Ox 90 degres rotation");
+    addToggleKeyToUI('w', &g_bWireframe, "'w': toggle wireframe (not in cmd list...)");
     addToggleKeyToUI('g', &s_bDisplayGrid, "'g': toggles grid display");
     addToggleKeyToUI('s', &s_bStats, "'s': toggle stats");
     addToggleKeyToUI('a', &s_bCameraAnim, "'a': animate camera");

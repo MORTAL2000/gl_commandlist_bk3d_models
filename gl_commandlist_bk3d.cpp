@@ -81,9 +81,9 @@ static const char *s_glslf_mesh =
 "layout(location=0) out vec4 outColor;\n"
 "void main() {\n"
 "\n"
-"   float d1 = max(0.0, abs(dot(N, light.dir)) );\n"
-"   //float d2 = 0.6 * max(0.0, abs(dot(N, -light.dir)) );\n"
-"   outColor = vec4(material.diffuse * (/*d2 +*/ d1),1);\n"
+"   float d1 = max(0.0, (dot(N, normalize(light.dir))) );\n"
+"   float d2 = 0.4 * max(0.0, dot(N, vec3(-light.dir.x, 0.0, -light.dir.z)) );\n"
+"   outColor = vec4( (material.diffuse * d1) + vec3(0.8,0.7,1)*(material.diffuse * d2),1);\n"
 "}\n"
 ;
 static const char *s_glslf_mesh_line = 
@@ -160,12 +160,7 @@ void Bk3dModel::deleteCommandListData()
     // delete FBOs... m_tokenBufferModel.fbos
     for(int i=0; i<m_commandModel.stateGroups.size(); i++)
         glDeleteStatesNV(1, &m_commandModel.stateGroups[i]);
-    m_commandModel.dataPtrs.clear();
-    m_commandModel.sizes.clear();
-    m_commandModel.fbos.clear();
-    m_commandModel.stateGroups.clear();
-    m_commandModel.numItems = 0;
-
+    m_commandModel.clear();
     m_bRecordObject     = true;
     if(m_commandList)
         glDeleteCommandListsNV(1, &m_commandList);
@@ -328,7 +323,7 @@ int Bk3dModel::recordMeshes(GLenum topology, std::vector<int> &offsets, GLsizei 
     // Loop through meshes
     //
     // Hack: my captured models do have a bad geometry in mesh #0... *start with 1*
-    for(int i=1; i< m_meshFile->pMeshes->n; i++)
+    for(int i=g_firstMesh; i< m_meshFile->pMeshes->n; i++)
 	{
 		bk3d::Mesh *pMesh = m_meshFile->pMeshes->p[i];
         int idx = (int)pMesh->userPtr;
@@ -820,7 +815,7 @@ bool Bk3dModel::initBuffersObject()
                 pPG->userPtr = (void*)curEBO.Sz;
                 curEBO.Sz += alignedSz;
             } else {
-                pPG->userPtr = NULL;
+                pPG->userPtr = (void*)~0;
             }
         }
 	}
@@ -970,10 +965,16 @@ void Bk3dModel::displayObject(const mat4f& cameraView, const mat4f projection, G
     g_globalMatrices.mVP = projection * cameraView;
     g_globalMatrices.mW = mat4f(array16_id);
     //g_globalMatrices.mW.rotate(nv_to_rad*180.0f, vec3f(0,1,0));
-    g_globalMatrices.mW.rotate(-nv_to_rad*90.0f, vec3f(1,0,0));
+    // correction for some captured models that have a wrong default rotation
+    if(g_bRotateOx90)
+        g_globalMatrices.mW.rotate(-nv_to_rad*90.0f, vec3f(1,0,0));
 	g_globalMatrices.mW.translate(-m_posOffset);
     g_globalMatrices.mW.scale(m_scale);
     glNamedBufferSubDataEXT(g_uboMatrix.Id, 0, sizeof(g_globalMatrices), &g_globalMatrices);
+
+    // wireframe mode ?
+    if(g_bWireframe)
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
     if(g_bUseCommandLists)
     {
@@ -1014,8 +1015,8 @@ void Bk3dModel::displayObject(const mat4f& cameraView, const mat4f projection, G
     }
     if(m_meshFile)
     {
-        GLuint      curMaterial = 0;
-        GLuint      curTransf = 0;
+        GLuint      curMaterial = ~0;
+        GLuint      curTransf = ~0;
         BO          curVBO, curEBO;
         glEnableClientState(GL_VERTEX_ATTRIB_ARRAY_UNIFIED_NV);
         glEnableClientState(GL_ELEMENT_ARRAY_UNIFIED_NV);
@@ -1026,7 +1027,7 @@ void Bk3dModel::displayObject(const mat4f& cameraView, const mat4f projection, G
 
 	    glEnableVertexAttribArray(0);
 	    glDisableVertexAttribArray(2);
-	    for(int i=1; i< m_meshFile->pMeshes->n; i++)
+	    for(int i=g_firstMesh; i< m_meshFile->pMeshes->n; i++)
 	    {
 		    bk3d::Mesh *pMesh = m_meshFile->pMeshes->p[i];
             int idx = (int)pMesh->userPtr;
@@ -1093,7 +1094,7 @@ void Bk3dModel::displayObject(const mat4f& cameraView, const mat4f projection, G
                     glPolygonOffset(1.0, 1.0); // no issue with redundant call here: the state capture will just deal with simplifying things
                     s_shaderMesh.bindShader();
                 }
-                if(pMesh->pPrimGroups->p[pg]->userPtr)
+                if(pMesh->pPrimGroups->p[pg]->pIndexBufferData)
                 {
 			        glBufferAddressRangeNV(GL_ELEMENT_ARRAY_ADDRESS_NV, 0,
                         curEBO.Addr + (GLuint64EXT)pMesh->pPrimGroups->p[pg]->userPtr,
@@ -1104,9 +1105,9 @@ void Bk3dModel::displayObject(const mat4f& cameraView, const mat4f projection, G
 				        pMesh->pPrimGroups->p[pg]->indexFormatGL,
 				        NULL);
                 } else {
-			        /*glDrawArrays(
+			        glDrawArrays(
 				        pMesh->pPrimGroups->p[pg]->topologyGL,
-				        0, pMesh->pPrimGroups->p[pg]->indexCount);*/
+				        0, pMesh->pPrimGroups->p[pg]->indexCount);
                 }
 		    }
 	    }
@@ -1117,6 +1118,9 @@ void Bk3dModel::displayObject(const mat4f& cameraView, const mat4f projection, G
         glDisableClientState(GL_ELEMENT_ARRAY_UNIFIED_NV);
         glDisableClientState(GL_UNIFORM_BUFFER_UNIFIED_NV);
     }
+    // wireframe mode ?
+    if(g_bWireframe)
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 }
 
 bool Bk3dModel::initGraphics_bk3d()
