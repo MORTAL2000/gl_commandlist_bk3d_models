@@ -1034,7 +1034,9 @@ bool MyWindow::init()
     //
     // Check mandatory extensions
     //
-    if(!glewIsSupported("GL_NV_vertex_buffer_unified_memory"))// GL_NV_uniform_buffer_unified_memory"))
+    if(!(glewIsSupported("GL_NV_vertex_buffer_unified_memory")
+       &&glewIsSupported("GL_ARB_bindless_texture")
+    ))// GL_NV_uniform_buffer_unified_memory"))
     {
         LOGE("Failed to initialize NVIDIA Bindless graphics\n");
         return false;
