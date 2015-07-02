@@ -71,7 +71,7 @@ using namespace nv_math;
 //
 // Let's assume we would put any matrix that don't get impacted by the local object transformation
 //
-ALIGNED_(256, struct MatrixBufferGlobal
+NV_ALIGN(256, struct MatrixBufferGlobal
 { 
   mat4f mW; 
   mat4f mVP;
@@ -80,7 +80,7 @@ ALIGNED_(256, struct MatrixBufferGlobal
 // Let's assume these are the ones that can change for each object
 // will used at an array of MatrixBufferObject
 //
-ALIGNED_(256, struct MatrixBufferObject
+NV_ALIGN(256, struct MatrixBufferObject
 {
     mat4f mO;
 } );
@@ -88,13 +88,13 @@ ALIGNED_(256, struct MatrixBufferObject
 // if we create arrays with a structure, we must be aligned according to
 // GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT (to query)
 //
-ALIGNED_(256, struct MaterialBuffer
+NV_ALIGN(256, struct MaterialBuffer
 {
     vec3f diffuse;
     float a;
 } );
 
-ALIGNED_(256, struct LightBuffer
+NV_ALIGN(256, struct LightBuffer
 {
     vec3f dir;
 } );
