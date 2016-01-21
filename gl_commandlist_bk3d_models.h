@@ -267,7 +267,8 @@ public:
     void update_fbo_target(GLuint fbo);
     bool recordTokenBufferObject(GLuint m_fboMSAA8x);
     bool initBuffersObject();
-    bool loadModel();
+    bool loadModel(const char *name=NULL);
+    bool loaded() { return m_meshFile ? true:false; }
     void displayObject(const mat4f& cameraView, const mat4f projection, GLuint fboMSAA8x, int maxItems=-1);
     void printPosition();
     void addStats(Stats &stats);

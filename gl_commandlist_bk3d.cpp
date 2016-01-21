@@ -887,29 +887,44 @@ bool Bk3dModel::initBuffersObject()
 //------------------------------------------------------------------------------
 //
 //------------------------------------------------------------------------------
-bool Bk3dModel::loadModel()
+bool Bk3dModel::loadModel(const char *name)
 {
+    if(name && name[0] != '\0')
+        m_name = std::string(name);
     LOGI("Loading Mesh %s..\n", m_name.c_str());
     LOGFLUSH();
-    if(!(m_meshFile = bk3d::load(m_name.c_str() )))
+    std::vector<std::string> modelPaths;
+    modelPaths.push_back(m_name); // for when models with binaries
+    modelPaths.push_back(std::string("../../../downloaded_resources/") + m_name); // for when in build_all/build folder
+    modelPaths.push_back(std::string("../../downloaded_resources/") + m_name); // for when in gl_commandlist_bk3d_models/build folder
+    modelPaths.push_back(std::string(PROJECT_RELDIRECTORY) + std::string("../downloaded_resources/") + m_name);
+    modelPaths.push_back(std::string(PROJECT_RELDIRECTORY) + m_name);
+    modelPaths.push_back(std::string(PROJECT_ABSDIRECTORY) + m_name);
+
+    for(int i=0; i<modelPaths.size();i++)
     {
-        std::string modelPathName;
-        modelPathName = std::string("../../downloaded_resources/") + m_name;
-        if(!(m_meshFile = bk3d::load(modelPathName.c_str())))
-        {
-            modelPathName = std::string(PROJECT_RELDIRECTORY) + std::string("../downloaded_resources/") + m_name;
-            if(!(m_meshFile = bk3d::load(modelPathName.c_str())))
-            {
-                modelPathName = std::string(PROJECT_RELDIRECTORY) + m_name;
-                m_meshFile = bk3d::load(modelPathName.c_str());
-                if(!(m_meshFile = bk3d::load(modelPathName.c_str())))
-                {
-                    modelPathName = std::string(PROJECT_ABSDIRECTORY) + m_name;
-                    m_meshFile = bk3d::load(modelPathName.c_str());
-                }
-            }
-        }
+        if(m_meshFile = bk3d::load(modelPaths[i].c_str()))
+            break; // found
     }
+    //if(!(m_meshFile = bk3d::load(m_name.c_str() )))
+    //{
+    //    std::string modelPathName;
+    //    modelPathName = std::string("../../downloaded_resources/") + m_name;
+    //    if(!(m_meshFile = bk3d::load(modelPathName.c_str())))
+    //    {
+    //        modelPathName = std::string(PROJECT_RELDIRECTORY) + std::string("../downloaded_resources/") + m_name;
+    //        if(!(m_meshFile = bk3d::load(modelPathName.c_str())))
+    //        {
+    //            modelPathName = std::string(PROJECT_RELDIRECTORY) + m_name;
+    //            m_meshFile = bk3d::load(modelPathName.c_str());
+    //            if(!(m_meshFile = bk3d::load(modelPathName.c_str())))
+    //            {
+    //                modelPathName = std::string(PROJECT_ABSDIRECTORY) + m_name;
+    //                m_meshFile = bk3d::load(modelPathName.c_str());
+    //            }
+    //        }
+    //    }
+    //}
     if(m_meshFile)
     {
         //
@@ -950,6 +965,7 @@ bool Bk3dModel::loadModel()
         }
     } else {
         LOGE("error in loading mesh %s\n", m_name.c_str());
+        return false;
     }
     return true;
 }

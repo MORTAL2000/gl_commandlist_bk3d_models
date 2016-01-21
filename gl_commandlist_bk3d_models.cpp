@@ -33,6 +33,13 @@
 #define GRIDSZ 1.0f
 #define CROSSSZ 0.01f
 
+#ifdef NOGZLIB
+#   define MODELNAME "SubMarine_134.bk3d"
+#   define MODELNAMEBACKUP "Smobby_134.bk3d"
+#else
+#   define MODELNAME "SubMarine_134.bk3d.gz"
+#   define MODELNAMEBACKUP "Smobby_134.bk3d.gz"
+#endif
 //-----------------------------------------------------------------------------
 // Derive the Window for this sample
 //-----------------------------------------------------------------------------
@@ -60,10 +67,13 @@ public:
 };
 
 MyWindow::MyWindow() :
-    WindowInertiaCamera(vec3f(0.0f,1.0f,-3.0f), vec3f(0,0,0))
+    WindowInertiaCamera(vec3f(0.0f,1.0f,-3.0f), 
+        vec3f(0,-0.4,0.33)) // target adjusted to SubMarine_134.bk3d.gz
     , downsamplingMode(NVFBOBox::DS2)
 {
 }
+
+static MyWindow g_myWindow;
 
 //-----------------------------------------------------------------------------
 // Grid
@@ -1261,6 +1271,14 @@ bool initGraphics()
     //
     Bk3dModel::initGraphics_bk3d();
     FOREACHMODEL(loadModel());
+    // check if the first one failed and try a last trick
+    if(!s_bk3dModels[0]->loaded())
+    {
+        LOGW("Note: couldn't find " MODELNAME ". You can get models by *UN-checking* cmake option 'MODELS_DOWNLOAD_DISABLED'\n");
+        LOGW("This will wget some big models for more testing, such as "MODELNAME"\n");
+        g_myWindow.m_camera.focusPos = vec3f(0,0,-0.6); // to adjust to Smobby_134.bk3d.gz
+        s_bk3dModels[0]->loadModel(MODELNAMEBACKUP);
+    }
     //
     // Creation of the buffer object for the Grid
     // will make them resident
@@ -1631,8 +1649,6 @@ void MyWindow::readConfigFile(const char* fname)
 //------------------------------------------------------------------------------
 int sample_main(int argc, const char** argv)
 {
-    // you can create more than only one
-    static MyWindow myWindow;
     NVPWindow::ContextFlags context(
     4,      //major;
     3,      //minor;
@@ -1646,7 +1662,7 @@ int sample_main(int argc, const char** argv)
     NULL   //share;
     );
 
-    if(!myWindow.create("Empty", &context, 1280,720))
+    if(!g_myWindow.create("Empty", &context, 1280,720))
     {
         LOGE("Failed to initialize the sample\n");
         return false;
@@ -1731,7 +1747,7 @@ int sample_main(int argc, const char** argv)
             {
                 const char* name = argv[++i];
                 LOGI("Load Model set to %s\n", name);
-                myWindow.readConfigFile(name);
+                g_myWindow.readConfigFile(name);
             }
             break;
         case 'd':
@@ -1746,23 +1762,17 @@ int sample_main(int argc, const char** argv)
             break;
         }
     }
-#ifdef NOGZLIB
-#   define MODELNAME "Smobby_134.bk3d.gz"
-#else
-#   define MODELNAME "Smobby_134.bk3d.gz"
-//#   define MODELNAME "Driveline_v134.bk3d.gz"
-#endif
     if(s_bk3dModels.empty())
     {
         LOGI("Load default Model" MODELNAME "\n");
         s_bk3dModels.push_back(new Bk3dModel(MODELNAME));
     }
 
-    myWindow.reshape(myWindow.getWidth(), myWindow.getHeight());
+    g_myWindow.reshape(g_myWindow.getWidth(), g_myWindow.getHeight());
     initGraphics();
 
-    myWindow.makeContextCurrent();
-    myWindow.swapInterval(0);
+    g_myWindow.makeContextCurrent();
+    g_myWindow.swapInterval(0);
 
     g_profiler.init();
 
@@ -1776,7 +1786,7 @@ int sample_main(int argc, const char** argv)
             #endif
             s_messages.erase(im);
         }
-        myWindow.idle();
+        g_myWindow.idle();
     }
     return true;
 }
