@@ -33,7 +33,8 @@ using namespace nv_math;
 
 #include "GLSLShader.h"
 #include "gl_nv_command_list.h"
-#include "nv_helpers_gl/profiler.hpp"
+#include "nv_helpers_gl/profilertimersgl.hpp"
+#include "nv_helpers/profiler.hpp"
 
 #include "nv_helpers_gl/WindowInertiaCamera.h"
 
@@ -54,7 +55,7 @@ using namespace nv_math;
 #include "bk3dEx.h" // a baked binary format for few models
 
 #if 1//SUPPORT_PROFILE
-#define PROFILE_SECTION(name)   nv_helpers_gl::Profiler::Section _tempTimer(g_profiler ,name)
+#define PROFILE_SECTION(name)   nv_helpers::Profiler::Section _tempTimer(g_profiler ,name)
 #define PROFILE_SPLIT()         g_profiler.accumulationSplit()
 #else
 #define PROFILE_SECTION(name)
@@ -166,7 +167,8 @@ struct CommandStatesBatch
 //
 extern TokenBuffer g_tokenBufferViewport;
 
-extern nv_helpers_gl::Profiler  g_profiler;
+extern nv_helpers::Profiler             g_profiler;
+extern nv_helpers_gl::ProfilerTimersGL  g_gltimers;
 
 extern bool         g_bUseEmulation;
 extern bool         g_bUseCommandLists;

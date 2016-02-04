@@ -149,7 +149,8 @@ void updateViewportTokenBufferAndLineWidth(GLint x, GLint y, GLsizei width, GLsi
 IWindowFolding*   g_pTweakContainer = NULL;
 #endif
 TwBar*      tweakBar = NULL;
-nv_helpers_gl::Profiler      g_profiler;
+nv_helpers::Profiler            g_profiler;
+nv_helpers_gl::ProfilerTimersGL g_gltimers;
 
 GLSLShader g_shaderGrid;
 
@@ -1492,7 +1493,7 @@ void MyWindow::display()
   std::string stats;
   static std::string hudStats = "...";
   {
-    nv_helpers_gl::Profiler::FrameHelper helper(g_profiler,sysGetTime(), 2.0, stats);
+    nv_helpers::Profiler::FrameHelper helper(g_profiler,sysGetTime(), 2.0, stats);
     NXPROFILEFUNC(__FUNCTION__);
     PROFILE_SECTION("MyWindow::display");
 
@@ -1775,6 +1776,7 @@ int sample_main(int argc, const char** argv)
     g_myWindow.swapInterval(0);
 
     g_profiler.init();
+    g_profiler.setDefaultGPUInterface(&g_gltimers);
 
     while(MyWindow::sysPollEvents(false) )
     {
